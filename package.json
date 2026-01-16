@@ -4,10 +4,11 @@
   "description": "An autonomous AI coding agent following the Ralph Wiggum pattern.",
   "main": "ralph.js",
   "bin": {
-    "ralph": "./bin/ralph.js" 
+    "ralph": "./bin/ralph.js"
   },
   "scripts": {
-    "setup": "mkdir -p tasks/todo tasks/done tasks/failed"
+    "setup": "mkdir -p tasks/todo tasks/done tasks/failed",
+    "test": "vitest run"
   },
   "dependencies": {
     "fs-extra": "^11.2.0",
@@ -22,5 +23,8 @@
     "Ralph Wiggum"
   ],
   "author": "Andrew Dunn",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "vitest": "^4.0.17"
+  }
 }
