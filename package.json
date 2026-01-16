@@ -3,12 +3,11 @@
   "version": "1.0.0",
   "description": "An autonomous AI coding agent following the Ralph Wiggum pattern.",
   "main": "ralph.js",
+  "bin": {
+    "ralph": "./ralph.js" 
+  },
   "scripts": {
-    "setup": "mkdir -p tasks/todo tasks/done tasks/failed",
-    "start": "node ralph.js",
-    "interactive": "node ralph.js --interactive",
-    "clean": "rm -rf tasks/done/* tasks/failed/*",
-    "preflight": "node -e \"try { require('child_process').execSync('gemini --version'); console.log('✅ Gemini CLI is ready'); } catch (e) { console.error('❌ Gemini CLI missing. Run: npm install -g @google/gemini-cli'); process.exit(1); }\""
+    "setup": "mkdir -p tasks/todo tasks/done tasks/failed"
   },
   "dependencies": {
     "fs-extra": "^11.2.0",
@@ -19,8 +18,9 @@
     "agent",
     "automation",
     "gemini",
-    "coding-assistant"
+    "coding-assistant",
+    "Ralph Wiggum"
   ],
-  "author": "Your Name",
-  "license": "MIT"
+  "author": "Andrew Dunn",
+  "license": "Apache-2.0"
 }
