@@ -1,10 +1,9 @@
 const fs = require('fs-extra');
 const path = require('path');
 const matter = require('gray-matter');
-const { callGemini } = require('../services/ai.service');
-const GitService = require('../services/git.service');
+const { execSync } = require('child_process');
 
-async function runTask(filePath, fileName, dirs, options) {
+async function runTask(filePath, fileName, dirs, { aiService, gitService, ...options }) {
     const { data, content } = matter(fs.readFileSync(filePath, 'utf8'));
     let history = [];
     let success = false;
@@ -13,7 +12,7 @@ async function runTask(filePath, fileName, dirs, options) {
         console.log(`   Attempt ${i}/3...`);
         
         const prompt = `ROLE: Senior Engineer\nTASK: ${content}\nFILES: ${data.affected_files}`;
-        const aiOutput = await callGemini(prompt);
+        const aiOutput = await aiService.callGemini(prompt);
         history.push(`### Attempt ${i}\n${aiOutput}`);
 
         if (options.interactive) {
@@ -21,8 +20,8 @@ async function runTask(filePath, fileName, dirs, options) {
         }
 
         try {
-            GitService.runValidation(data.validation_cmd);
-            GitService.commit(`Ralph: ${data.task_id} fixed`);
+            gitService.runValidation(data.validation_cmd);
+            gitService.commit(`Ralph: ${data.task_id} fixed`);
             success = true;
             finalize(filePath, fileName, dirs.DONE, history);
             break;
