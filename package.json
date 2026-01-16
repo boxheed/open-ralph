@@ -8,7 +8,7 @@
   },
   "scripts": {
     "setup": "mkdir -p tasks/todo tasks/done tasks/failed",
-    "test": "vitest run"
+    "test": "vitest run --coverage --coverage.include=src/**/*.js"
   },
   "dependencies": {
     "fs-extra": "^11.2.0",
@@ -25,6 +25,7 @@
   "author": "Andrew Dunn",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.17",
     "vitest": "^4.0.17"
   }
 }
