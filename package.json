@@ -1,0 +1,26 @@
+{
+  "name": "ralph-loop-agent",
+  "version": "1.0.0",
+  "description": "An autonomous AI coding agent following the Ralph Wiggum pattern.",
+  "main": "ralph.js",
+  "scripts": {
+    "setup": "mkdir -p tasks/todo tasks/done tasks/failed",
+    "start": "node ralph.js",
+    "interactive": "node ralph.js --interactive",
+    "clean": "rm -rf tasks/done/* tasks/failed/*",
+    "preflight": "node -e \"try { require('child_process').execSync('gemini --version'); console.log('✅ Gemini CLI is ready'); } catch (e) { console.error('❌ Gemini CLI missing. Run: npm install -g @google/gemini-cli'); process.exit(1); }\""
+  },
+  "dependencies": {
+    "fs-extra": "^11.2.0",
+    "gray-matter": "^4.0.3"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "automation",
+    "gemini",
+    "coding-assistant"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
