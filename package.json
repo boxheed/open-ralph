@@ -4,7 +4,7 @@
   "description": "An autonomous AI coding agent following the Ralph Wiggum pattern.",
   "main": "ralph.js",
   "bin": {
-    "ralph": "./ralph.js" 
+    "ralph": "./bin/ralph.js" 
   },
   "scripts": {
     "setup": "mkdir -p tasks/todo tasks/done tasks/failed"
