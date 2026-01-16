@@ -53,11 +53,16 @@ Task Content`;
         
         // Verify Validation and Commit
         expect(mockGitService.runValidation).toHaveBeenCalledWith('test');
-        expect(mockGitService.commit).toHaveBeenCalledWith('fix(T1): automated task resolution');
         
-        // Verify File Move (Success)
+        // Verify File Move (Success) happens BEFORE commit
         expect(mockFs.moveSync).toHaveBeenCalledWith(filePath, 'done/task.md');
         expect(mockFs.writeFileSync).toHaveBeenCalled(); // Log update
+        
+        const moveCallOrder = mockFs.moveSync.mock.invocationCallOrder[0];
+        const commitCallOrder = mockGitService.commit.mock.invocationCallOrder[0];
+        expect(moveCallOrder).toBeLessThan(commitCallOrder);
+
+        expect(mockGitService.commit).toHaveBeenCalledWith('fix(T1): automated task resolution');
     });
 
     it('should retry up to 3 times on validation failure then fail', async () => {
