@@ -53,7 +53,7 @@ Task Content`;
         
         // Verify Validation and Commit
         expect(mockGitService.runValidation).toHaveBeenCalledWith('test');
-        expect(mockGitService.commit).toHaveBeenCalledWith('Ralph: T1 fixed');
+        expect(mockGitService.commit).toHaveBeenCalledWith('fix(T1): automated task resolution');
         
         // Verify File Move (Success)
         expect(mockFs.moveSync).toHaveBeenCalledWith(filePath, 'done/task.md');

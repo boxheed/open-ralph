@@ -27,7 +27,7 @@ async function runTask(filePath, fileName, dirs, {
 
         try {
             gitService.runValidation(data.validation_cmd);
-            gitService.commit(`Ralph: ${data.task_id} fixed`);
+            gitService.commit(`fix(${data.task_id}): automated task resolution`);
             success = true;
             finalize(filePath, fileName, dirs.DONE, history, null, fs);
             break;
