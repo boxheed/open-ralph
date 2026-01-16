@@ -1,10 +1,15 @@
-const fs = require('fs-extra');
+const defaultFs = require('fs-extra');
 const path = require('path');
 const matter = require('gray-matter');
-const { callGemini } = require('../services/ai.service');
-const GitService = require('../services/git.service');
+const { execSync: defaultExecSync } = require('child_process');
 
-async function runTask(filePath, fileName, dirs, options) {
+async function runTask(filePath, fileName, dirs, { 
+    aiService, 
+    gitService, 
+    fs = defaultFs, 
+    execSync = defaultExecSync, 
+    ...options 
+}) {
     const { data, content } = matter(fs.readFileSync(filePath, 'utf8'));
     let history = [];
     let success = false;
@@ -13,7 +18,7 @@ async function runTask(filePath, fileName, dirs, options) {
         console.log(`   Attempt ${i}/3...`);
         
         const prompt = `ROLE: Senior Engineer\nTASK: ${content}\nFILES: ${data.affected_files}`;
-        const aiOutput = callGemini(prompt);
+        const aiOutput = await aiService.callGemini(prompt);
         history.push(`### Attempt ${i}\n${aiOutput}`);
 
         if (options.interactive) {
@@ -21,19 +26,22 @@ async function runTask(filePath, fileName, dirs, options) {
         }
 
         try {
-            GitService.runValidation(data.validation_cmd);
-            GitService.commit(`Ralph: ${data.task_id} fixed`);
+            gitService.runValidation(data.validation_cmd);
+            gitService.commit(`Ralph: ${data.task_id} fixed`);
             success = true;
-            finalize(filePath, fileName, dirs.DONE, history);
+            finalize(filePath, fileName, dirs.DONE, history, null, fs);
             break;
         } catch (err) {
-            if (i === 3) finalize(filePath, fileName, dirs.FAILED, history, err.message);
+            if (i === 3) finalize(filePath, fileName, dirs.FAILED, history, err.message, fs);
         }
     }
 }
 
-function finalize(oldPath, fileName, targetDir, history, error) {
-    const log = `\n\n## Results\n- Status: ${targetDir}\n${history.join('\n')}`;
+function finalize(oldPath, fileName, targetDir, history, error, fs) {
+    let log = `\n\n## Results\n- Status: ${targetDir}\n${history.join('\n')}`;
+    if (error) {
+        log += `\n- Error: ${error}`;
+    }
     fs.writeFileSync(oldPath, fs.readFileSync(oldPath, 'utf8') + log);
     fs.moveSync(oldPath, path.join(targetDir, fileName));
 }
