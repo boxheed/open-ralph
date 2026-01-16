@@ -1,6 +1,6 @@
-const { spawn } = require('child_process');
+const defaultSpawn = require('child_process').spawn;
 
-function callGemini(prompt) {
+function callGemini(prompt, { spawn = defaultSpawn } = {}) {
     return new Promise((resolve, reject) => {
         const child = spawn('gemini', [prompt, '--allowed-tools', 'run_shell_command', 'write_file', 'replace']);
         
