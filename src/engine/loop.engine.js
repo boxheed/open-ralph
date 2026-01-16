@@ -13,7 +13,7 @@ async function runTask(filePath, fileName, dirs, options) {
         console.log(`   Attempt ${i}/3...`);
         
         const prompt = `ROLE: Senior Engineer\nTASK: ${content}\nFILES: ${data.affected_files}`;
-        const aiOutput = callGemini(prompt);
+        const aiOutput = await callGemini(prompt);
         history.push(`### Attempt ${i}\n${aiOutput}`);
 
         if (options.interactive) {

@@ -1,10 +1,35 @@
-const { spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 
 function callGemini(prompt) {
-    const result = spawnSync('gemini', [prompt, '--allowed-tools', 'run_shell_command', 'write_file', 'replace'], { encoding: 'utf8' });
-    if (result.error) throw new Error(`Gemini CLI failed: ${result.error.message}`);
-    if (result.status !== 0) throw new Error(`Gemini CLI failed with exit code ${result.status}: ${result.stderr}`);
-    return result.stdout || result.stderr || "No output from AI.";
+    return new Promise((resolve, reject) => {
+        const child = spawn('gemini', [prompt, '--allowed-tools', 'run_shell_command', 'write_file', 'replace']);
+        
+        let output = '';
+
+        child.stdout.on('data', (data) => {
+            const str = data.toString();
+            process.stdout.write(str);
+            output += str;
+        });
+
+        child.stderr.on('data', (data) => {
+            const str = data.toString();
+            process.stderr.write(str);
+            output += str;
+        });
+
+        child.on('close', (code) => {
+            if (code !== 0) {
+                reject(new Error(`Gemini CLI failed with exit code ${code}`));
+            } else {
+                resolve(output || "No output from AI.");
+            }
+        });
+
+        child.on('error', (err) => {
+            reject(new Error(`Gemini CLI failed: ${err.message}`));
+        });
+    });
 }
 
 module.exports = { callGemini };
