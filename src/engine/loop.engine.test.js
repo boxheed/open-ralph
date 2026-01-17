@@ -94,6 +94,29 @@ describe("loop.engine", () => {
         );
     });
 
+    it("should use global default model if not in task", async () => {
+        mockMatter.mockReturnValue({
+            data: { task_id: "T4", validation_cmd: "test", affected_files: "f4" }, 
+            content: "Task Content"
+        });
+        
+        mockAiService.callAI.mockResolvedValue("AI Code Fix");
+        
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter,
+            config: { model: "global-model-v2" }
+        });
+
+        expect(mockAiService.callAI).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ model: "global-model-v2" })
+        );
+    });
+
     it("should retry", async () => {
         mockAiService.callAI.mockResolvedValue("AI");
         mockGitService.runValidation.mockImplementation(() => { throw new Error("Fail"); });

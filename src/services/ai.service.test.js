@@ -21,7 +21,7 @@ describe("ai.service", () => {
 
         const config = {
             providers: {
-                gemini: { command: "gemini \"{prompt}\"" }
+                gemini: { command: "gemini {prompt}" }
             }
         };
 
@@ -42,7 +42,7 @@ describe("ai.service", () => {
 
         const config = {
             providers: {
-                aider: { command: "aider --message \"{prompt}\" {files}" }
+                aider: { command: "aider --message {prompt} {files}" }
             }
         };
 
@@ -67,7 +67,7 @@ describe("ai.service", () => {
 
         const config = {
             providers: {
-                test: { command: "cmd \"{prompt}\"" }
+                test: { command: "cmd {prompt}" }
             }
         };
 
@@ -76,5 +76,28 @@ describe("ai.service", () => {
         await promise;
 
         expect(mockSpawn).toHaveBeenCalledWith("cmd \"hello \\\"world\\\"\"", [], { shell: true });
+    });
+
+    it("should substitute {model} placeholder", async () => {
+        const mockChild = createMockChildProcess();
+        const mockSpawn = vi.fn().mockReturnValue(mockChild);
+        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
+
+        const config = {
+            providers: {
+                test: { command: "cmd --model {model} {prompt}" }
+            }
+        };
+
+        const promise = callAI("hello", { 
+            spawn: mockSpawn, 
+            provider: "test", 
+            config,
+            model: "gpt-4" 
+        });
+        mockChild.emit("close", 0);
+        await promise;
+
+        expect(mockSpawn).toHaveBeenCalledWith("cmd --model gpt-4 \"hello\"", [], { shell: true });
     });
 });

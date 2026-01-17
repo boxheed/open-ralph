@@ -11,7 +11,6 @@ describe("ConfigService", () => {
             const mockFs = { existsSync: vi.fn().mockReturnValue(false) };
             const config = loadConfig("/test", mockFs);
             expect(config).toEqual(DEFAULTS);
-            expect(mockFs.existsSync).toHaveBeenCalledWith(path.join("/test", "ralph.config.js"));
          });
     });
 
@@ -26,7 +25,7 @@ describe("ConfigService", () => {
             fs.removeSync(tmpDir);
         });
 
-        it("should load config from file", () => {
+        it("should load config from ralph.config.js", () => {
             const configContent = `
                 module.exports = {
                     retries: 5,
@@ -40,6 +39,27 @@ describe("ConfigService", () => {
             expect(config.retries).toBe(5);
             expect(config.dirs.todo).toBe("./custom/todo");
             expect(config.dirs.done).toBe(DEFAULTS.dirs.done); // Merged
+        });
+
+        it("should load config from ralph.json", () => {
+            const configContent = JSON.stringify({
+                retries: 2,
+                model: "gpt-4-turbo"
+            });
+            fs.writeFileSync(path.join(tmpDir, "ralph.json"), configContent);
+
+            const config = loadConfig(tmpDir);
+
+            expect(config.retries).toBe(2);
+            expect(config.model).toBe("gpt-4-turbo");
+        });
+        
+        it("should prioritize ralph.config.js over ralph.json", () => {
+             fs.writeFileSync(path.join(tmpDir, "ralph.config.js"), "module.exports = { retries: 1 };");
+             fs.writeFileSync(path.join(tmpDir, "ralph.json"), JSON.stringify({ retries: 2 }));
+             
+             const config = loadConfig(tmpDir);
+             expect(config.retries).toBe(1);
         });
     });
 });

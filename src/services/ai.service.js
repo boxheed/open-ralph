@@ -19,7 +19,7 @@ function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}
         const safeModel = model || config.model || "";
 
         const command = commandTemplate
-            .replace(/{prompt}/g, safePrompt)
+            .replace(/{prompt}/g, `"${safePrompt}"`)
             .replace(/{files}/g, safeFiles)
             .replace(/{model}/g, safeModel);
 
