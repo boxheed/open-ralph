@@ -7,13 +7,14 @@ const { callGemini } = require("../src/services/ai.service");
 const { loadConfig } = require("../src/services/config.service");
 const { Command } = require("commander");
 const path = require("path");
+const pkg = require("../package.json");
 
 const program = new Command();
 
 program
   .name("ralph")
-  .description("An autonomous AI coding agent")
-  .version("1.0.0");
+  .description(pkg.description)
+  .version(pkg.version);
 
 program
   .command("run", { isDefault: true })
