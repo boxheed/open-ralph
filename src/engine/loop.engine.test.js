@@ -72,6 +72,28 @@ describe("loop.engine", () => {
         );
     });
 
+    it("should use model from task frontmatter", async () => {
+        mockMatter.mockReturnValue({
+            data: { task_id: "T3", validation_cmd: "test", affected_files: "f3", model: "gpt-4" },
+            content: "Task Content"
+        });
+        
+        mockAiService.callAI.mockResolvedValue("AI Code Fix");
+        
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter
+        });
+
+        expect(mockAiService.callAI).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ model: "gpt-4" })
+        );
+    });
+
     it("should retry", async () => {
         mockAiService.callAI.mockResolvedValue("AI");
         mockGitService.runValidation.mockImplementation(() => { throw new Error("Fail"); });

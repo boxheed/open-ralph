@@ -19,6 +19,7 @@ async function runTask(filePath, fileName, dirs, {
     const retries = config.retries || 3;
     
     const provider = data.provider || config.provider || "gemini";
+    const model = data.model || config.model;
 
     for (let i = 1; i <= retries; i++) {
         console.log(`   Attempt ${i}/${retries}...`);
@@ -28,7 +29,8 @@ async function runTask(filePath, fileName, dirs, {
         const aiOutput = await aiService.callAI(prompt, {
             provider,
             config,
-            files: data.affected_files
+            files: data.affected_files,
+            model
         });
         
         history.push(`### Attempt ${i}\n${aiOutput}`);

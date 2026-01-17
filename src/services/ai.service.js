@@ -1,6 +1,6 @@
 const defaultSpawn = require("child_process").spawn;
 
-function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}, files = "" } = {}) {
+function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}, files = "", model = null } = {}) {
     return new Promise((resolve, reject) => {
         const providers = config.providers || {};
         const providerConfig = providers[provider];
@@ -16,7 +16,7 @@ function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}
         
         const safePrompt = prompt.replace(/"/g, "\\\"");
         const safeFiles = files;
-        const safeModel = config.model || "";
+        const safeModel = model || config.model || "";
 
         const command = commandTemplate
             .replace(/{prompt}/g, safePrompt)
