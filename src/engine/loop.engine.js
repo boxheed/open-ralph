@@ -1,28 +1,31 @@
-const defaultFs = require('fs-extra');
-const path = require('path');
-const matter = require('gray-matter');
-const { execSync: defaultExecSync } = require('child_process');
+const defaultFs = require("fs-extra");
+const path = require("path");
+const matter = require("gray-matter");
+const { execSync: defaultExecSync } = require("child_process");
 
 async function runTask(filePath, fileName, dirs, { 
     aiService, 
     gitService, 
     fs = defaultFs, 
-    execSync = defaultExecSync, 
+    execSync = defaultExecSync,
+    config,
     ...options 
 }) {
-    const { data, content } = matter(fs.readFileSync(filePath, 'utf8'));
+    const { data, content } = matter(fs.readFileSync(filePath, "utf8"));
     let history = [];
     let success = false;
+    
+    const retries = config && config.retries ? config.retries : 3;
 
-    for (let i = 1; i <= 3; i++) {
-        console.log(`   Attempt ${i}/3...`);
+    for (let i = 1; i <= retries; i++) {
+        console.log(`   Attempt ${i}/${retries}...`);
         
         const prompt = `ROLE: Senior Engineer\nTASK: ${content}\nFILES: ${data.affected_files}`;
         const aiOutput = await aiService.callGemini(prompt);
         history.push(`### Attempt ${i}\n${aiOutput}`);
 
         if (options.interactive) {
-            execSync('read -p "AI finished. Inspect code, then press [Enter]..."');
+            execSync("read -p \"AI finished. Inspect code, then press [Enter]...\"");
         }
 
         try {
@@ -32,17 +35,17 @@ async function runTask(filePath, fileName, dirs, {
             gitService.commit(`fix(${data.task_id}): automated task resolution`);
             break;
         } catch (err) {
-            if (i === 3) finalize(filePath, fileName, dirs.FAILED, history, err.message, fs);
+            if (i === retries) finalize(filePath, fileName, dirs.FAILED, history, err.message, fs);
         }
     }
 }
 
 function finalize(oldPath, fileName, targetDir, history, error, fs) {
-    let log = `\n\n## Results\n- Status: ${targetDir}\n${history.join('\n')}`;
+    let log = `\n\n## Results\n- Status: ${targetDir}\n${history.join("\n")}`;
     if (error) {
         log += `\n- Error: ${error}`;
     }
-    fs.writeFileSync(oldPath, fs.readFileSync(oldPath, 'utf8') + log);
+    fs.writeFileSync(oldPath, fs.readFileSync(oldPath, "utf8") + log);
     fs.moveSync(oldPath, path.join(targetDir, fileName));
 }
 
