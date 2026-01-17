@@ -12,7 +12,7 @@ const DEFAULTS = {
     provider: "gemini",
     providers: {
         gemini: {
-            command: "gemini {prompt} --allowed-tools run_shell_command write_file replace"
+            command: "gemini {prompt} --model {model} --allowed-tools run_shell_command write_file replace"
         },
         aider: {
             command: "aider --message {prompt} {files}"

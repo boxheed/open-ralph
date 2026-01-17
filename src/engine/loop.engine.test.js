@@ -137,4 +137,23 @@ describe("loop.engine", () => {
         expect(mockAiService.callAI).toHaveBeenCalledTimes(2);
         expect(mockFs.moveSync).toHaveBeenCalledWith(filePath, "failed/task.md");
     });
+    it("should prioritize task model over global config model", async () => { 
+        mockMatter.mockReturnValue({ 
+            data: { task_id: "T5", validation_cmd: "test", affected_files: "f5", model: "task-model" }, 
+            content: "Task Content" 
+        }); 
+        mockAiService.callAI.mockResolvedValue("AI Code Fix"); 
+        await runTask(filePath, fileName, dirs, { 
+            aiService: mockAiService, 
+            gitService: mockGitService, 
+            fs: mockFs, 
+            execSync: mockExecSync, 
+            matter: mockMatter, 
+            config: { model: "global-model" } 
+        }); 
+        expect(mockAiService.callAI).toHaveBeenCalledWith( 
+            expect.any(String), 
+            expect.objectContaining({ model: "task-model" }) 
+        ); 
+    }); 
 });
