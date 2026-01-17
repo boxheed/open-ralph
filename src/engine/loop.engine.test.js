@@ -6,6 +6,7 @@ describe("loop.engine", () => {
     let mockGitService;
     let mockFs;
     let mockExecSync;
+    let mockLogger;
     let mockMatter;
     
     const dirs = { TODO: "./todo", DONE: "./done", FAILED: "./failed" };
@@ -22,6 +23,7 @@ describe("loop.engine", () => {
             moveSync: vi.fn()
         };
         mockExecSync = vi.fn();
+        mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() };
         mockMatter = vi.fn().mockReturnValue({
             data: { task_id: "T1", validation_cmd: "test", affected_files: "f1" },
             content: "Task Content"
@@ -36,6 +38,7 @@ describe("loop.engine", () => {
             gitService: mockGitService,
             fs: mockFs,
             execSync: mockExecSync,
+            logger: mockLogger,
             matter: mockMatter
         });
 
@@ -46,6 +49,7 @@ describe("loop.engine", () => {
             expect.objectContaining({ provider: "gemini", files: "f1" })
         );
         
+        expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining("Attempt 1/3"));
         expect(mockGitService.runValidation).toHaveBeenCalledWith("test");
         expect(mockFs.moveSync).toHaveBeenCalledWith(filePath, "done/task.md");
     });

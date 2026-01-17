@@ -10,6 +10,7 @@ async function runTask(filePath, fileName, dirs, {
     execSync = defaultExecSync,
     config = {},
     matter = defaultMatter,
+    logger = { info: () => {}, error: () => {}, warn: () => {}, debug: () => {} },
     ...options 
 }) {
     const { data, content } = matter(fs.readFileSync(filePath, "utf8"));
@@ -22,7 +23,7 @@ async function runTask(filePath, fileName, dirs, {
     const model = data.model || config.model;
 
     for (let i = 1; i <= retries; i++) {
-        console.log(`   Attempt ${i}/${retries}...`);
+        logger.info(`   Attempt ${i}/${retries}...`);
         
         const prompt = `ROLE: Senior Engineer\nTASK: ${content}\nFILES: ${data.affected_files}`;
         
