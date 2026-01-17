@@ -8,7 +8,34 @@ const DEFAULTS = {
         failed: "./tasks/failed"
     },
     retries: 3,
-    model: "gemini-1.5-flash"
+    model: "gemini-1.5-flash",
+    provider: "gemini",
+    providers: {
+        gemini: {
+            command: "gemini \"{prompt}\" --allowed-tools run_shell_command write_file replace"
+        },
+        aider: {
+            command: "aider --message \"{prompt}\" {files}"
+        },
+        "github-copilot": {
+            command: "gh copilot suggest \"{prompt}\""
+        },
+        forge: {
+            command: "forge \"{prompt}\""
+        },
+        nanocoder: {
+            command: "nanocoder \"{prompt}\""
+        },
+        cline: {
+            command: "cline \"{prompt}\""
+        },
+        opencode: {
+            command: "opencode \"{prompt}\""
+        },
+        "qwen-code": {
+            command: "qwen-code \"{prompt}\""
+        }
+    }
 };
 
 function loadConfig(source = process.cwd(), fsImpl = defaultFs) {
@@ -39,6 +66,10 @@ function loadConfig(source = process.cwd(), fsImpl = defaultFs) {
         dirs: {
             ...DEFAULTS.dirs,
             ...(userConfig.dirs || {})
+        },
+        providers: {
+            ...DEFAULTS.providers,
+            ...(userConfig.providers || {})
         }
     };
 }

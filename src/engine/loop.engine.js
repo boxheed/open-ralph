@@ -1,6 +1,6 @@
 const defaultFs = require("fs-extra");
 const path = require("path");
-const matter = require("gray-matter");
+const defaultMatter = require("gray-matter");
 const { execSync: defaultExecSync } = require("child_process");
 
 async function runTask(filePath, fileName, dirs, { 
@@ -8,20 +8,29 @@ async function runTask(filePath, fileName, dirs, {
     gitService, 
     fs = defaultFs, 
     execSync = defaultExecSync,
-    config,
+    config = {},
+    matter = defaultMatter,
     ...options 
 }) {
     const { data, content } = matter(fs.readFileSync(filePath, "utf8"));
     let history = [];
     let success = false;
     
-    const retries = config && config.retries ? config.retries : 3;
+    const retries = config.retries || 3;
+    
+    const provider = data.provider || config.provider || "gemini";
 
     for (let i = 1; i <= retries; i++) {
         console.log(`   Attempt ${i}/${retries}...`);
         
         const prompt = `ROLE: Senior Engineer\nTASK: ${content}\nFILES: ${data.affected_files}`;
-        const aiOutput = await aiService.callGemini(prompt);
+        
+        const aiOutput = await aiService.callAI(prompt, {
+            provider,
+            config,
+            files: data.affected_files
+        });
+        
         history.push(`### Attempt ${i}\n${aiOutput}`);
 
         if (options.interactive) {

@@ -77,6 +77,48 @@ ralph
 ralph --interactive
 ```
 
+
+## ⚙️ Configuration
+
+Ralph supports multiple AI providers (Gemini, Aider, GitHub Copilot, etc.). The default is `gemini`.
+
+### Setting the Provider
+
+You can set the provider globally in `ralph.config.js` or per-task in the front matter.
+
+**`ralph.config.js`**:
+```javascript
+module.exports = {
+  provider: "aider", // Set default to Aider
+  providers: {
+    aider: {
+      // Override default command template
+      command: "aider --model gpt-4 --message \"{prompt}\" {files}"
+    }
+  }
+};
+```
+
+**Task Front Matter**:
+```markdown
+---
+task_id: "FEAT-123"
+provider: "gemini"
+...
+---
+```
+
+### Supported Providers
+
+- **gemini** (Default)
+- **aider**
+- **github-copilot**
+- **forge**
+- **nanocoder**
+- **cline**
+- **opencode**
+- **qwen-code**
+
 ## 🏗 Modular Architecture
 
   * `bin/ralph.js`: CLI Entry point and argument parsing.
