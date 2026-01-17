@@ -100,4 +100,15 @@ describe("ai.service", () => {
 
         expect(mockSpawn).toHaveBeenCalledWith("cmd --model gpt-4 \"hello\"", [], { shell: true });
     });
+
+    it("should ignore model if placeholder is missing", async () => {
+        const mockChild = createMockChildProcess();
+        const mockSpawn = vi.fn().mockReturnValue(mockChild);
+        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
+        const config = { providers: { test: { command: "cmd {prompt}" } } };
+        const promise = callAI("hello", { spawn: mockSpawn, provider: "test", config, model: "gpt-4" });
+        mockChild.emit("close", 0);
+        await promise;
+        expect(mockSpawn).toHaveBeenCalledWith("cmd \"hello\"", [], { shell: true });
+    });
 });
