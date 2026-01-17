@@ -11,13 +11,23 @@ const DEFAULTS = {
     model: "gemini-1.5-flash"
 };
 
-function loadConfig(cwd = process.cwd(), fsImpl = defaultFs) {
-    const configPath = path.join(cwd, "ralph.config.js");
+function loadConfig(source = process.cwd(), fsImpl = defaultFs) {
+    let configPath;
+
+    if (typeof source === "string") {
+        configPath = path.join(source, "ralph.config.js");
+    } else if (typeof source === "object" && source !== null && source.configPath) {
+        configPath = source.configPath;
+    } else {
+        configPath = path.join(process.cwd(), "ralph.config.js");
+    }
+
     let userConfig = {};
 
     if (fsImpl.existsSync(configPath)) {
         try {
-            userConfig = require(configPath);
+            const absoluteConfigPath = path.resolve(configPath);
+            userConfig = require(absoluteConfigPath);
         } catch (error) {
             console.warn(`Warning: Failed to load config from ${configPath}`, error.message);
         }
