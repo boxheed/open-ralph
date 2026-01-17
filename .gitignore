@@ -141,3 +141,5 @@ vite.config.ts.timestamp-*
 .vite/
 
 .mcp.json
+
+tasks/draft/
