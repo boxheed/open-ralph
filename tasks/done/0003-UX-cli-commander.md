@@ -22,3 +22,17 @@ We should migrate to a robust library like `commander` or `yargs`.
 1.  Running `ralph --help` shows proper documentation.
 2.  The existing functionality (running tasks) works with the new parser.
 3.  `--interactive` flag is correctly recognized.
+
+
+## Results
+- Status: ./tasks/done
+
+**Summary of Changes:**
+1.  **Refactored `bin/ralph.js`**: Integrated `commander` for robust CLI argument parsing. Added `-i/--interactive` and `-c/--config` flags.
+2.  **Updated `src/services/config.service.js`**: Modified `loadConfig` to accept an explicit configuration file path.
+3.  **Dependencies**: Added `commander` to `package.json`.
+
+**Verification:**
+-   Verified `ralph --help` outputs correct usage.
+-   Verified `ralph run` executes the loop (and detects dirty git state).
+-   Ran `npm test` to ensure no regressions.
