@@ -3,7 +3,7 @@
 const fs = require("fs-extra");
 const { runTask } = require("../src/engine/loop.engine");
 const GitService = require("../src/services/git.service");
-const { callGemini } = require("../src/services/ai.service");
+const { callAI } = require("../src/services/ai.service");
 const { loadConfig } = require("../src/services/config.service");
 const { Command } = require("commander");
 const path = require("path");
@@ -47,7 +47,7 @@ program
     const files = fs.readdirSync(DIRS.TODO).filter(f => f.endsWith(".md")).sort();
     
     const services = {
-        aiService: { callGemini },
+        aiService: { callAI },
         gitService: GitService
     };
 
