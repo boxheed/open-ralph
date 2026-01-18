@@ -78,5 +78,35 @@ describe("ConfigService", () => {
             expect(config.model).toBeUndefined();
             expect(config.retries).toBe(5);
         });
+
+        it("should handle malformed config file gracefully", () => {
+            const configContent = `
+                module.exports = {
+                    retries: 
+                }; // Syntax Error
+            `;
+            fs.writeFileSync(path.join(tmpDir, "ralph.config.js"), configContent);
+
+            const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            
+            const config = loadConfig(tmpDir);
+
+            expect(config.retries).toBe(DEFAULTS.retries); // Should fall back to default
+            expect(consoleSpy).toHaveBeenCalled();
+            
+            consoleSpy.mockRestore();
+        });
+
+        it("should handle empty user providers directory", () => {
+            const providersDir = path.join(tmpDir, ".ralph", "providers");
+            fs.ensureDirSync(providersDir);
+            
+            // No files in directory
+
+            const config = loadConfig(tmpDir);
+
+            // Should still have built-in providers
+            expect(config.providers["gemini"]).toBeDefined();
+        });
     });
 });

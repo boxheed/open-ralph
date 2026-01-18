@@ -1,14 +1,14 @@
-const fs = require("fs");
+const defaultFs = require("fs");
 
 module.exports = {
     name: "gemini",
     /**
      * Builds the command arguments for the Gemini CLI.
      * @param {string} prompt - The prompt text.
-     * @param {object} context - Context containing { model, files }.
+     * @param {object} context - Context containing { model, files, fs }.
      * @returns {object} - { command: string, args: string[] }
      */
-    build: (prompt, { model }) => {
+    build: (prompt, { model, fs = defaultFs } = {}) => {
         let args = [];
         //specify model if provided
         if (model) {
