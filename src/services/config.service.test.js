@@ -8,10 +8,15 @@ describe("ConfigService", () => {
     
     describe("Unit", () => {
          it("should return defaults if no config file exists (mocked fs)", () => {
-            const mockFs = { existsSync: vi.fn().mockReturnValue(false) };
+            const mockFs = { 
+                existsSync: vi.fn().mockReturnValue(false),
+                readdirSync: vi.fn().mockReturnValue([]) 
+            };
             const config = loadConfig("/test", mockFs);
-            expect(config).toEqual(DEFAULTS);
-            expect(mockFs.existsSync).toHaveBeenCalledWith(path.join("/test", "ralph.config.js"));
+            expect(config.dirs).toEqual(DEFAULTS.dirs);
+            expect(config.retries).toBe(DEFAULTS.retries);
+            expect(config.provider).toBe(DEFAULTS.provider);
+            expect(config.providers).toBeDefined();
          });
     });
 
@@ -26,7 +31,7 @@ describe("ConfigService", () => {
             fs.removeSync(tmpDir);
         });
 
-        it("should load config from file", () => {
+        it("should load config from ralph.config.js", () => {
             const configContent = `
                 module.exports = {
                     retries: 5,
@@ -40,6 +45,24 @@ describe("ConfigService", () => {
             expect(config.retries).toBe(5);
             expect(config.dirs.todo).toBe("./custom/todo");
             expect(config.dirs.done).toBe(DEFAULTS.dirs.done); // Merged
+        });
+
+        it("should load user-defined providers from .ralph/providers", () => {
+            const providersDir = path.join(tmpDir, ".ralph", "providers");
+            fs.ensureDirSync(providersDir);
+            
+            const providerContent = `
+                module.exports = {
+                    name: "custom-ai",
+                    command: "custom-ai {prompt}"
+                };
+            `;
+            fs.writeFileSync(path.join(providersDir, "custom-ai.js"), providerContent);
+
+            const config = loadConfig(tmpDir);
+
+            expect(config.providers["custom-ai"]).toBeDefined();
+            expect(config.providers["custom-ai"].command).toBe("custom-ai {prompt}");
         });
     });
 });

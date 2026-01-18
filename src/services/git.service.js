@@ -9,13 +9,22 @@ class GitService {
         return this.execSync('git status --porcelain').toString().trim().length === 0;
     }
 
-    commit(message) {
-        this.execSync('git add .');
+    commit(message, paths = []) {
+        if (paths && paths.length > 0) {
+            const pathArgs = paths.map(p => `"${p}"`).join(' ');
+            this.execSync(`git add ${pathArgs}`);
+        } else {
+            this.execSync('git add .');
+        }
         this.execSync(`git commit -m "${message}"`);
     }
 
-    runValidation(cmd) {
-        this.execSync(cmd, { stdio: 'inherit' });
+    runValidation(cmd, timeout = 0) {
+        const options = { stdio: 'inherit' };
+        if (timeout > 0) {
+            options.timeout = timeout;
+        }
+        this.execSync(cmd, options);
     }
 }
 

@@ -77,6 +77,68 @@ ralph
 ralph --interactive
 ```
 
+
+## ⚙️ Configuration
+
+Ralph supports multiple AI providers (Gemini, Aider, GitHub Copilot, etc.). The default is `gemini`.
+
+### Setting the Provider
+
+You can set the provider globally in `ralph.config.js` or per-task in the front matter.
+
+**`ralph.config.js`**:
+```javascript
+module.exports = {
+  provider: "aider", // Set default to Aider
+  providers: {
+    aider: {
+      // Override default command template
+      command: "aider --model gpt-4 --message \"{prompt}\" {files}"
+    }
+  }
+};
+```
+
+**Task Front Matter**:
+```markdown
+---
+task_id: "FEAT-123"
+provider: "gemini"
+...
+---
+```
+
+### Supported Providers
+
+- **gemini** (Default)
+- **aider**
+- **github-copilot**
+- **forge**
+- **nanocoder**
+- **cline**
+- **opencode**
+- **qwen-code**
+
+### Custom Providers
+
+You can add your own AI providers by creating a `.js` file in your project's `.ralph/providers/` directory.
+
+**Example `.ralph/providers/my-custom-ai.js`**:
+```javascript
+module.exports = {
+  name: "my-custom-ai",
+  command: "my-cli --prompt {prompt} --model {model}",
+  defaultModel: "standard-model",
+  
+  // Optional: customize how the prompt is formatted before it's sent to the CLI
+  getPrompt: (prompt, { model, files }) => {
+    return `Model: ${model}\nFiles: ${files}\n\nTask: ${prompt}`;
+  }
+};
+```
+
+Once added, you can use it by setting `provider: "my-custom-ai"` in your config or task front matter.
+
 ## 🏗 Modular Architecture
 
   * `bin/ralph.js`: CLI Entry point and argument parsing.

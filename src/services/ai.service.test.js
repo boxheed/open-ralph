@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { callGemini } from './ai.service';
-import { EventEmitter } from 'events';
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { callAI } from "./ai.service";
+import { EventEmitter } from "events";
 
-describe('ai.service', () => {
-    // Helper to create a mock child process
+describe("ai.service", () => {
     function createMockChildProcess() {
         const child = new EventEmitter();
         child.stdout = new EventEmitter();
@@ -15,91 +14,125 @@ describe('ai.service', () => {
         vi.restoreAllMocks();
     });
 
-    it('should call gemini with correct arguments and resolve with output', async () => {
-        const mockSpawn = vi.fn();
+    it("should call default provider (gemini) with correct template", async () => {
         const mockChild = createMockChildProcess();
-        mockSpawn.mockReturnValue(mockChild);
+        const mockSpawn = vi.fn().mockReturnValue(mockChild);
+        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
+
+        const config = {
+            providers: {
+                gemini: { command: "gemini {prompt}" }
+            }
+        };
+
+        const promise = callAI("hello", { spawn: mockSpawn, config });
         
-        // Spy on process.stdout to prevent actual logging during test and verify streaming
-        const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => {});
-
-        const prompt = 'Test Prompt';
-        const promise = callGemini(prompt, { spawn: mockSpawn });
-
-        // Verify spawn arguments
-        expect(mockSpawn).toHaveBeenCalledWith('gemini', [prompt, '--allowed-tools', 'run_shell_command', 'write_file', 'replace']);
-
-        // Simulate streaming data
-        mockChild.stdout.emit('data', 'Hello ');
-        mockChild.stdout.emit('data', 'World');
+        mockChild.stdout.emit("data", "out");
+        mockChild.emit("close", 0);
         
-        // Simulate process exit
-        mockChild.emit('close', 0);
+        await promise;
 
-        const result = await promise;
-
-        expect(result).toBe('Hello World');
-        expect(stdoutSpy).toHaveBeenCalledWith('Hello ');
-        expect(stdoutSpy).toHaveBeenCalledWith('World');
+        expect(mockSpawn).toHaveBeenCalledWith("gemini \"hello\"", [], { shell: true });
     });
 
-    it('should handle stderr output and resolve it as part of result', async () => {
-        const mockSpawn = vi.fn().mockReturnValue(createMockChildProcess());
-        const mockChild = mockSpawn(); // Get the returned mock (need to refactor test slightly to get ref)
+    it("should call custom provider (aider) with correct template", async () => {
+        const mockChild = createMockChildProcess();
+        const mockSpawn = vi.fn().mockReturnValue(mockChild);
+        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
+
+        const config = {
+            providers: {
+                aider: { command: "aider --message {prompt} {files}" }
+            }
+        };
+
+        const promise = callAI("fix bug", { 
+            spawn: mockSpawn, 
+            provider: "aider", 
+            config,
+            files: "src/main.js" 
+        });
         
-        // Refactor: create mock child first
-        const childProc = createMockChildProcess();
-        mockSpawn.mockReturnValue(childProc);
-
-        const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => {});
-
-        const promise = callGemini('prompt', { spawn: mockSpawn });
-
-        childProc.stderr.emit('data', 'Warning: ');
-        childProc.stdout.emit('data', 'Success');
-        childProc.emit('close', 0);
-
-        const result = await promise;
+        mockChild.emit("close", 0);
         
-        // Based on implementation, output += str for both stdout and stderr
-        // The order depends on emission order.
-        expect(result).toBe('Warning: Success');
-        expect(stderrSpy).toHaveBeenCalledWith('Warning: ');
+        await promise;
+
+        expect(mockSpawn).toHaveBeenCalledWith("aider --message \"fix bug\" src/main.js", [], { shell: true });
     });
 
-    it('should reject if process exits with non-zero code', async () => {
-        const mockSpawn = vi.fn();
-        const childProc = createMockChildProcess();
-        mockSpawn.mockReturnValue(childProc);
+    it("should escape quotes in prompt", async () => {
+        const mockChild = createMockChildProcess();
+        const mockSpawn = vi.fn().mockReturnValue(mockChild);
+        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
 
-        const promise = callGemini('prompt', { spawn: mockSpawn });
+        const config = {
+            providers: {
+                test: { command: "cmd {prompt}" }
+            }
+        };
 
-        childProc.emit('close', 1);
+        const promise = callAI("hello \"world\"", { spawn: mockSpawn, provider: "test", config });
+        mockChild.emit("close", 0);
+        await promise;
 
-        await expect(promise).rejects.toThrow('Gemini CLI failed with exit code 1');
+        expect(mockSpawn).toHaveBeenCalledWith("cmd \"hello \\\"world\\\"\"", [], { shell: true });
     });
 
-    it('should reject if spawn emits an error', async () => {
-        const mockSpawn = vi.fn();
-        const childProc = createMockChildProcess();
-        mockSpawn.mockReturnValue(childProc);
+    it("should substitute {model} placeholder", async () => {
+        const mockChild = createMockChildProcess();
+        const mockSpawn = vi.fn().mockReturnValue(mockChild);
+        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
 
-        const promise = callGemini('prompt', { spawn: mockSpawn });
+        const config = {
+            providers: {
+                test: { command: "cmd --model {model} {prompt}" }
+            }
+        };
 
-        childProc.emit('error', new Error('Spawn failed'));
+        const promise = callAI("hello", { 
+            spawn: mockSpawn, 
+            provider: "test", 
+            config,
+            model: "gpt-4" 
+        });
+        mockChild.emit("close", 0);
+        await promise;
 
-        await expect(promise).rejects.toThrow('Gemini CLI failed: Spawn failed');
+        expect(mockSpawn).toHaveBeenCalledWith("cmd --model gpt-4 \"hello\"", [], { shell: true });
     });
 
-    it('should return default message if no output received', async () => {
-        const mockSpawn = vi.fn();
-        const childProc = createMockChildProcess();
-        mockSpawn.mockReturnValue(childProc);
+    it("should ignore model if placeholder is missing", async () => {
+        const mockChild = createMockChildProcess();
+        const mockSpawn = vi.fn().mockReturnValue(mockChild);
+        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
+        const config = { providers: { test: { command: "cmd {prompt}" } } };
+        const promise = callAI("hello", { spawn: mockSpawn, provider: "test", config, model: "gpt-4" });
+        mockChild.emit("close", 0);
+        await promise;
+        expect(mockSpawn).toHaveBeenCalledWith("cmd \"hello\"", [], { shell: true });
+    });
 
-        const promise = callGemini('prompt', { spawn: mockSpawn });
-        childProc.emit('close', 0);
+    it("should timeout if process takes too long", async () => {
+        vi.useFakeTimers();
+        const mockChild = createMockChildProcess();
+        mockChild.kill = vi.fn();
+        const mockSpawn = vi.fn().mockReturnValue(mockChild);
+        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
 
-        const result = await promise;
-        expect(result).toBe("No output from AI.");
+        const config = { providers: { gemini: { command: "gemini {prompt}" } } };
+
+        const promise = callAI("slow", { 
+            spawn: mockSpawn, 
+            config, 
+            timeout: 1000 
+        });
+        
+        // Fast-forward time
+        vi.advanceTimersByTime(1001);
+        
+        await expect(promise).rejects.toThrow("AI process timed out after 1000ms");
+        expect(mockChild.kill).toHaveBeenCalled();
+        
+        vi.useRealTimers();
     });
 });

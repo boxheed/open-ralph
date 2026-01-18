@@ -36,6 +36,15 @@ describe('GitService', () => {
             expect(mockExecSync).toHaveBeenCalledWith('git add .');
             expect(mockExecSync).toHaveBeenCalledWith(`git commit -m "${message}"`);
         });
+
+        it('should execute git add with specific paths if provided', () => {
+            const message = 'feat: scoped commit';
+            const paths = ['src/file1.js', 'src/file2.js'];
+            gitService.commit(message, paths);
+
+            expect(mockExecSync).toHaveBeenCalledWith('git add "src/file1.js" "src/file2.js"');
+            expect(mockExecSync).toHaveBeenCalledWith(`git commit -m "${message}"`);
+        });
     });
 
     describe('runValidation', () => {
@@ -44,6 +53,14 @@ describe('GitService', () => {
             gitService.runValidation(cmd);
 
             expect(mockExecSync).toHaveBeenCalledWith(cmd, { stdio: 'inherit' });
+        });
+
+        it('should pass timeout to execSync if provided', () => {
+            const cmd = 'npm test';
+            const timeout = 5000;
+            gitService.runValidation(cmd, timeout);
+
+            expect(mockExecSync).toHaveBeenCalledWith(cmd, { stdio: 'inherit', timeout });
         });
     });
 });

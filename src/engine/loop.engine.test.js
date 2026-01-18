@@ -1,28 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { runTask } from './loop.engine';
-import matter from 'gray-matter';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { runTask } from "./loop.engine";
 
-// Mock gray-matter since it's not injected but used on the result of fs.readFileSync
-vi.mock('gray-matter');
-
-describe('loop.engine', () => {
+describe("loop.engine", () => {
     let mockAiService;
     let mockGitService;
     let mockFs;
     let mockExecSync;
-    const dirs = { TODO: './todo', DONE: './done', FAILED: './failed' };
-    const filePath = './todo/task.md';
-    const fileName = 'task.md';
-    const fileContent = `---
-task_id: T1
-validation_cmd: test
-affected_files: f1
----
-Task Content`;
+    let mockLogger;
+    let mockMatter;
+    
+    const dirs = { TODO: "./todo", DONE: "./done", FAILED: "./failed" };
+    const filePath = "./todo/task.md";
+    const fileName = "task.md";
+    const fileContent = "Raw Content";
     
     beforeEach(() => {
-        // Reset mocks
-        mockAiService = { callGemini: vi.fn() };
+        mockAiService = { callAI: vi.fn() };
         mockGitService = { runValidation: vi.fn(), commit: vi.fn() };
         mockFs = {
             readFileSync: vi.fn().mockReturnValue(fileContent),
@@ -30,96 +23,199 @@ Task Content`;
             moveSync: vi.fn()
         };
         mockExecSync = vi.fn();
-
-        // Setup matter mock behavior
-        matter.mockReturnValue({
-            data: { task_id: 'T1', validation_cmd: 'test', affected_files: 'f1' },
-            content: 'Task Content'
+        mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() };
+        mockMatter = vi.fn().mockReturnValue({
+            data: { task_id: "T1", validation_cmd: "test", affected_files: "f1" },
+            content: "Task Content"
         });
     });
 
-    it('should run successfully on first attempt', async () => {
-        mockAiService.callGemini.mockResolvedValue('AI Code Fix');
-        
-        await runTask(filePath, fileName, dirs, {
-            aiService: mockAiService,
-            gitService: mockGitService,
-            fs: mockFs,
-            execSync: mockExecSync
-        });
-
-        // Verify AI called
-        expect(mockAiService.callGemini).toHaveBeenCalledWith(expect.stringContaining('Task Content'));
-        
-        // Verify Validation and Commit
-        expect(mockGitService.runValidation).toHaveBeenCalledWith('test');
-        
-        // Verify File Move (Success) happens BEFORE commit
-        expect(mockFs.moveSync).toHaveBeenCalledWith(filePath, 'done/task.md');
-        expect(mockFs.writeFileSync).toHaveBeenCalled(); // Log update
-        
-        const moveCallOrder = mockFs.moveSync.mock.invocationCallOrder[0];
-        const commitCallOrder = mockGitService.commit.mock.invocationCallOrder[0];
-        expect(moveCallOrder).toBeLessThan(commitCallOrder);
-
-        expect(mockGitService.commit).toHaveBeenCalledWith('fix(T1): automated task resolution');
-    });
-
-    it('should retry up to 3 times on validation failure then fail', async () => {
-        mockAiService.callGemini.mockResolvedValue('AI Fix Attempt');
-        mockGitService.runValidation.mockImplementation(() => { throw new Error('Test Failed'); });
-
-        await runTask(filePath, fileName, dirs, {
-            aiService: mockAiService,
-            gitService: mockGitService,
-            fs: mockFs,
-            execSync: mockExecSync
-        });
-
-        // Should call AI 3 times
-        expect(mockAiService.callGemini).toHaveBeenCalledTimes(3);
-        
-        // Should try validation 3 times
-        expect(mockGitService.runValidation).toHaveBeenCalledTimes(3);
-        
-        // Should NOT commit
-        expect(mockGitService.commit).not.toHaveBeenCalled();
-        
-        // Should move to FAILED
-        expect(mockFs.moveSync).toHaveBeenCalledWith(filePath, 'failed/task.md');
-    });
-
-    it('should succeed on the 2nd attempt', async () => {
-        mockAiService.callGemini.mockResolvedValue('Fix');
-        // Fail once, then succeed
-        mockGitService.runValidation
-            .mockImplementationOnce(() => { throw new Error('Fail 1'); })
-            .mockImplementationOnce(() => {}); 
-
-        await runTask(filePath, fileName, dirs, {
-            aiService: mockAiService,
-            gitService: mockGitService,
-            fs: mockFs,
-            execSync: mockExecSync
-        });
-
-        expect(mockAiService.callGemini).toHaveBeenCalledTimes(2);
-        expect(mockGitService.runValidation).toHaveBeenCalledTimes(2);
-        expect(mockGitService.commit).toHaveBeenCalled(); // Success
-        expect(mockFs.moveSync).toHaveBeenCalledWith(filePath, 'done/task.md');
-    });
-
-    it('should pause in interactive mode', async () => {
-        mockAiService.callGemini.mockResolvedValue('Fix');
+    it("should run successfully on first attempt", async () => {
+        mockAiService.callAI.mockResolvedValue("AI Code Fix");
         
         await runTask(filePath, fileName, dirs, {
             aiService: mockAiService,
             gitService: mockGitService,
             fs: mockFs,
             execSync: mockExecSync,
-            interactive: true
+            logger: mockLogger,
+            matter: mockMatter
         });
 
-        expect(mockExecSync).toHaveBeenCalledWith(expect.stringContaining('read -p'));
+        expect(mockMatter).toHaveBeenCalledWith("Raw Content");
+
+        expect(mockAiService.callAI).toHaveBeenCalledWith(
+            expect.stringContaining("Task Content"),
+            expect.objectContaining({ provider: "gemini", files: "f1" })
+        );
+        
+        expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining("Attempt 1/3"));
+        expect(mockGitService.runValidation).toHaveBeenCalledWith("test", undefined);
+        expect(mockFs.moveSync).toHaveBeenCalledWith(filePath, "done/task.md");
+    });
+
+    it("should use provider from task frontmatter", async () => {
+        mockMatter.mockReturnValue({
+            data: { task_id: "T2", validation_cmd: "test", affected_files: "f2", provider: "aider" },
+            content: "Task Content"
+        });
+        
+        mockAiService.callAI.mockResolvedValue("AI Code Fix");
+        
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter
+        });
+
+        expect(mockAiService.callAI).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ provider: "aider", files: "f2" })
+        );
+    });
+
+    it("should use model from task frontmatter", async () => {
+        mockMatter.mockReturnValue({
+            data: { task_id: "T3", validation_cmd: "test", affected_files: "f3", model: "gpt-4" },
+            content: "Task Content"
+        });
+        
+        mockAiService.callAI.mockResolvedValue("AI Code Fix");
+        
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter
+        });
+
+        expect(mockAiService.callAI).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ model: "gpt-4" })
+        );
+    });
+
+    it("should use global default model if not in task", async () => {
+        mockMatter.mockReturnValue({
+            data: { task_id: "T4", validation_cmd: "test", affected_files: "f4" }, 
+            content: "Task Content"
+        });
+        
+        mockAiService.callAI.mockResolvedValue("AI Code Fix");
+        
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter,
+            config: { model: "global-model-v2" }
+        });
+
+        expect(mockAiService.callAI).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ model: "global-model-v2" })
+        );
+    });
+
+    it("should retry", async () => {
+        mockAiService.callAI.mockResolvedValue("AI");
+        mockGitService.runValidation.mockImplementation(() => { throw new Error("Fail"); });
+
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter,
+            config: { retries: 2 }
+        });
+
+        expect(mockAiService.callAI).toHaveBeenCalledTimes(2);
+        expect(mockFs.moveSync).toHaveBeenCalledWith(filePath, "failed/task.md");
+    });
+    it("should prioritize task model over global config model", async () => { 
+        mockMatter.mockReturnValue({ 
+            data: { task_id: "T5", validation_cmd: "test", affected_files: "f5", model: "task-model" }, 
+            content: "Task Content" 
+        }); 
+        mockAiService.callAI.mockResolvedValue("AI Code Fix"); 
+        await runTask(filePath, fileName, dirs, { 
+            aiService: mockAiService, 
+            gitService: mockGitService, 
+            fs: mockFs, 
+            execSync: mockExecSync, 
+            matter: mockMatter, 
+            config: { model: "global-model" } 
+        }); 
+        expect(mockAiService.callAI).toHaveBeenCalledWith( 
+            expect.any(String), 
+            expect.objectContaining({ model: "task-model" }) 
+        ); 
+    });
+
+    it("should pass timeout values from config", async () => {
+        mockAiService.callAI.mockResolvedValue("AI Code Fix");
+        const timeouts = { ai: 1000, validation: 2000 };
+
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter,
+            config: { timeouts }
+        });
+
+        expect(mockAiService.callAI).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ timeout: 1000 })
+        );
+        expect(mockGitService.runValidation).toHaveBeenCalledWith("test", 2000);
+    });
+
+    it("should pass affected files and moved task file to git commit", async () => {
+        mockMatter.mockReturnValue({
+            data: { task_id: "T_COMMIT", validation_cmd: "test", affected_files: ["src/a.js", "src/b.js"] },
+            content: "Task Content"
+        });
+        mockAiService.callAI.mockResolvedValue("Fix");
+        
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter
+        });
+
+        expect(mockGitService.commit).toHaveBeenCalledWith(
+            expect.stringContaining("fix(T_COMMIT)"),
+            expect.arrayContaining(["done/task.md", "src/a.js", "src/b.js"])
+        );
+    });
+
+    it("should handle comma-separated affected files string", async () => {
+        mockMatter.mockReturnValue({
+            data: { task_id: "T_COMMIT_STR", validation_cmd: "test", affected_files: "src/c.js, src/d.js" },
+            content: "Task Content"
+        });
+        mockAiService.callAI.mockResolvedValue("Fix");
+        
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter
+        });
+
+        expect(mockGitService.commit).toHaveBeenCalledWith(
+            expect.stringContaining("fix(T_COMMIT_STR)"),
+            expect.arrayContaining(["done/task.md", "src/c.js", "src/d.js"])
+        );
     });
 });

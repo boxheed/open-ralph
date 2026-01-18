@@ -3,8 +3,9 @@
 const fs = require("fs-extra");
 const { runTask } = require("../src/engine/loop.engine");
 const GitService = require("../src/services/git.service");
-const { callGemini } = require("../src/services/ai.service");
+const { callAI } = require("../src/services/ai.service");
 const { loadConfig } = require("../src/services/config.service");
+const { LoggerService } = require("../src/services/logger.service");
 const { Command } = require("commander");
 const path = require("path");
 const pkg = require("../package.json");
@@ -46,8 +47,10 @@ program
 
     const files = fs.readdirSync(DIRS.TODO).filter(f => f.endsWith(".md")).sort();
     
+    const logger = new LoggerService("INFO");
+
     const services = {
-        aiService: { callGemini },
+        aiService: { callAI },
         gitService: GitService
     };
 
@@ -59,6 +62,7 @@ program
         await runTask(`${DIRS.TODO}/${file}`, file, DIRS, {
             interactive: options.interactive || false,
             config,
+            logger,
             ...services
         });
     }
