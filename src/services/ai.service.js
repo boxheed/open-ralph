@@ -20,7 +20,12 @@ function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}
         // Allow provider to customize the prompt
         const finalPrompt = providerConfig.getPrompt ? providerConfig.getPrompt(prompt, { model: resolvedModel, files }) : prompt;
         
-        const safePrompt = finalPrompt.replace(/"/g, "\\\"");
+        const safePrompt = finalPrompt
+            .replace(/\\/g, "\\\\")
+            .replace(/"/g, "\\\"")
+            .replace(/\$/g, "\\$")
+            .replace(/`/g, "\\`")
+            .replace(/\n/g, "\\n");
         const safeFiles = files;
         const safeModel = resolvedModel;
 
@@ -29,6 +34,7 @@ function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}
             .replace(/{files}/g, safeFiles)
             .replace(/{model}/g, safeModel);
 
+        console.log(`DEBUG: Executing command: ${command}`);
         const child = spawn(command, [], { shell: true });
         
         let output = "";
