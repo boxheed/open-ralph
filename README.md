@@ -1,4 +1,4 @@
-# 🤡 Ralph Agent (v1.0.0)
+# 🤡 Ralph Agent (v0.1.0)
 > "I'm helping!" — An autonomous, reliability-first AI coding loop.
 
 Ralph Agent is a platform-agnostic implementation of the **Ralph Wiggum Pattern**. Unlike traditional AI coding assistants that simply generate code, Ralph operates in a **Propose → Execute → Verify → Fix** loop. It treats the AI as a junior engineer that is not allowed to commit code until the validation tests pass.
@@ -91,12 +91,7 @@ You can set the provider globally in `ralph.config.js` or per-task in the front 
 module.exports = {
   provider: "aider", // Set default to Aider
   // model: "gpt-4", // Optional: Global model override
-  providers: {
-    aider: {
-      // Override default behavior
-      command: "aider --model gpt-4 --message \"{prompt}\" {files}"
-    }
-  }
+  // ...
 };
 ```
 
@@ -135,7 +130,7 @@ Ralph uses a flexible model configuration strategy. You are not required to set 
 
 You can add your own AI providers by creating a `.js` file in your project's `.ralph/providers/` directory.
 
-**Strategy Pattern (Recommended):**
+**Strategy Pattern:**
 Export a `build` function that returns the structured command and arguments. This is safer and more flexible.
 
 **Example `.ralph/providers/my-custom-ai.js`**:
@@ -158,15 +153,6 @@ module.exports = {
       args
     };
   }
-};
-```
-
-**Legacy Pattern (String Template):**
-Export a `command` string with placeholders `{prompt}`, `{files}`, and `{model}`.
-```javascript
-module.exports = {
-  name: "simple-ai",
-  command: "simple-cli --task \"{prompt}\" --model {model}"
 };
 ```
 

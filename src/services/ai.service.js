@@ -4,11 +4,9 @@ const defaultSpawn = require("child_process").spawn;
  * Executes an AI provider command.
  * 
  * Architecture Note:
- * This service supports two types of providers:
- * 1. Strategy Providers (Preferred): Export a `build(prompt, context)` function. 
- *    These return structured { command, args } allowing for safer `spawn` execution (shell: false).
- * 2. Template Providers (Legacy): Export a `command` string with placeholders.
- *    These require `shell: true` and rely on regex replacement, which is more fragile.
+ * This service executes AI providers using the Strategy Pattern.
+ * Providers must export a `build(prompt, context)` function which returns
+ * structured command arguments, allowing for safe `spawn` execution.
  */
 function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}, files = "", model = null, timeout = 0 } = {}) {
     return new Promise((resolve, reject) => {
@@ -22,65 +20,18 @@ function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}
         // Resolve Model Priority: Task > Provider Default > Global Config
         const resolvedModel = model || providerConfig.defaultModel || config.model || null;
 
-        let executable;
-        let args = [];
-        let useShell = false;
-        let commandStringForDebug = "";
-
-        if (typeof providerConfig.build === "function") {
-            // --- Strategy Pattern (New) ---
-            const buildResult = providerConfig.build(prompt, { model: resolvedModel, files });
-            executable = buildResult.command;
-            args = buildResult.args || [];
-            
-            // On Windows, calling npm binaries requires shell: true or appending .cmd. 
-            // We'll stick to shell: false for security on Linux/Mac, but might need shell: true if cross-platform is a hard requirement.
-            // For this environment (Linux), shell: false is preferred for security. 
-            useShell = false; 
-            commandStringForDebug = `${executable} ${args.map(a => `"${a}"`).join(" ")}`;
-
-        } else if (providerConfig.command) {
-            // --- Legacy Template Pattern ---
-            // Fallback for user-defined providers that haven't migrated
-            useShell = true;
-            
-            // Allow provider to customize the prompt (Legacy hook)
-            const finalPrompt = providerConfig.getPrompt ? providerConfig.getPrompt(prompt, { model: resolvedModel, files }) : prompt;
-            
-            const safePrompt = finalPrompt
-                .replace(/\\/g, "\\\\")
-                .replace(/"/g, '\\"')
-                .replace(/\$/g, "\\$")
-                .replace(/`/g, "\\`")
-                .replace(/\n/g, "\\n");
-            
-            const safeFiles = files;
-            const safeModel = resolvedModel;
-
-            let cmdStr = providerConfig.command;
-
-            if (safeModel) {
-                cmdStr = cmdStr
-                    .replace(/{prompt}/g, `"${safePrompt}"`) 
-                    .replace(/{files}/g, safeFiles)
-                    .replace(/{model}/g, safeModel);
-            } else {
-                // "No Model" Handling: Clean up flags
-                cmdStr = cmdStr
-                    .replace(/\s+(-m|--model)\s+{model}/g, "")
-                    .replace(/{model}/g, "")
-                    .replace(/{prompt}/g, `"${safePrompt}"`) 
-                    .replace(/{files}/g, safeFiles);
-                
-                cmdStr = cmdStr.replace(/\s+/g, " ").trim();
-            }
-            
-            executable = cmdStr;
-            args = [];
-            commandStringForDebug = cmdStr;
-        } else {
-             return reject(new Error(`Provider ${provider} must export a 'build' function or 'command' template.`));
+        if (typeof providerConfig.build !== "function") {
+             return reject(new Error(`Provider ${provider} must export a 'build' function.`));
         }
+
+        // --- Strategy Pattern (Strict) ---
+        const buildResult = providerConfig.build(prompt, { model: resolvedModel, files });
+        const executable = buildResult.command;
+        const args = buildResult.args || [];
+        
+        // Use shell: false for security
+        const useShell = false; 
+        const commandStringForDebug = `${executable} ${args.map(a => `"${a}"`).join(" ")}`;
 
         console.log(`DEBUG: Executing command: ${commandStringForDebug}`);
         

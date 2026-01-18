@@ -60,65 +60,17 @@ describe('ai.service', () => {
         expect(mockProvider.build).toHaveBeenCalledWith('prompt', expect.objectContaining({ model: 'gpt-4' }));
     });
 
-    // --- Legacy Template Pattern Tests ---
-
-    it('should fallback to string interpolation for legacy providers', async () => {
+    it('should reject if provider does not export build function', async () => {
         const legacyProvider = {
-            command: 'legacy-cli --prompt {prompt}'
+            command: 'legacy-cli {prompt}'
         };
         const config = { providers: { 'legacy': legacyProvider } };
 
-        await aiService.callAI('hello world', {
+        await expect(aiService.callAI('hello', {
             spawn: mockSpawn,
             provider: 'legacy',
             config
-        });
-
-        // Legacy uses shell: true and a single string
-        expect(mockSpawn).toHaveBeenCalledWith(
-            expect.stringContaining('legacy-cli --prompt "hello world"'), 
-            [], 
-            { shell: true }
-        );
-    });
-
-    it('should handle legacy model replacement', async () => {
-        const legacyProvider = {
-            command: 'legacy-cli {prompt} --model {model}'
-        };
-        const config = { providers: { 'legacy': legacyProvider } };
-
-        await aiService.callAI('hi', {
-            spawn: mockSpawn,
-            provider: 'legacy',
-            config,
-            model: 'v1'
-        });
-
-        expect(mockSpawn).toHaveBeenCalledWith(
-            expect.stringContaining('--model v1'), 
-            [], 
-            { shell: true }
-        );
-    });
-
-    it('should remove legacy model flags if no model provided', async () => {
-        const legacyProvider = {
-            command: 'legacy-cli {prompt} --model {model}'
-        };
-        const config = { providers: { 'legacy': legacyProvider } };
-
-        await aiService.callAI('hi', {
-            spawn: mockSpawn,
-            provider: 'legacy',
-            config,
-            model: null
-        });
-
-        // Should not contain --model or {model}
-        const callArgs = mockSpawn.mock.calls[0][0];
-        expect(callArgs).not.toContain('--model');
-        expect(callArgs).not.toContain('{model}');
+        })).rejects.toThrow('must export a \'build\' function');
     });
 
     // --- Model Resolution Tests ---
