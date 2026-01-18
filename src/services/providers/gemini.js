@@ -8,16 +8,21 @@ module.exports = {
      */
     build: (prompt, { model }) => {
         let args = [];
-        // If prompt is a file path to the context file, use --text flag
-        if (prompt.endsWith(".md") && (prompt.includes(".ralph") || prompt.includes("/context/"))) {
-            args = ["--text", prompt, "--yolo"];
-        } else {
-            args = [prompt, "--yolo"];
-        }
-
+        //specify model if provided
         if (model) {
             args.push("--model", model);
         }
+        args.push("--yolo");
+        let message = prompt;
+        if (fs.existsSync(prompt)) {
+            try {
+                message = fs.readFileSync(prompt, "utf8");
+            } catch (e) {
+                // Ignore error, use prompt as is
+            }
+        }
+        args.push(message);
+
         return {
             command: "gemini",
             args
