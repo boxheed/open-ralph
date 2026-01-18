@@ -27,12 +27,26 @@ function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}
             .replace(/`/g, "\\`")
             .replace(/\n/g, "\\n");
         const safeFiles = files;
-        const safeModel = resolvedModel;
+        
+        let command = commandTemplate;
 
-        const command = commandTemplate
-            .replace(/{prompt}/g, `"${safePrompt}"`)
-            .replace(/{files}/g, safeFiles)
-            .replace(/{model}/g, safeModel);
+        if (resolvedModel) {
+            const safeModel = resolvedModel;
+            command = command
+                .replace(/{prompt}/g, `"${safePrompt}"`)
+                .replace(/{files}/g, safeFiles)
+                .replace(/{model}/g, safeModel);
+        } else {
+            // "No Model" Handling: Remove model flags and placeholders if no model is resolved
+            command = command
+                .replace(/\s+(-m|--model)\s+{model}/g, "") // Remove flag + placeholder
+                .replace(/{model}/g, "") // Remove standalone placeholder
+                .replace(/{prompt}/g, `"${safePrompt}"`)
+                .replace(/{files}/g, safeFiles);
+            
+            // Cleanup extra spaces potentially left behind
+            command = command.replace(/\s+/g, " ").trim();
+        }
 
         console.log(`DEBUG: Executing command: ${command}`);
         const child = spawn(command, [], { shell: true });

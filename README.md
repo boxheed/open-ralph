@@ -90,6 +90,7 @@ You can set the provider globally in `ralph.config.js` or per-task in the front 
 ```javascript
 module.exports = {
   provider: "aider", // Set default to Aider
+  // model: "gpt-4", // Optional: Global model override
   providers: {
     aider: {
       // Override default command template
@@ -104,9 +105,23 @@ module.exports = {
 ---
 task_id: "FEAT-123"
 provider: "gemini"
+model: "gemini-1.5-pro" # Override model for this task
 ...
 ---
 ```
+
+### Model Configuration & Precedence
+
+Ralph uses a flexible model configuration strategy. You are not required to set a model globally. If no model is specified, Ralph will defer to the AI provider's native default (e.g., whatever `gemini` or `aider` CLI uses by default).
+
+**Precedence Order:**
+1.  **Task Frontmatter:** (Highest priority) Defined in the `.md` file.
+2.  **Provider Default:** Defined in the provider's `.js` file (e.g., `defaultModel`).
+3.  **Global Config:** Defined in `ralph.config.js`.
+4.  **CLI Native Default:** (Lowest priority) If no model is resolved, Ralph runs the command without a model flag, letting the CLI tool choose its default.
+
+**"No Model" Handling:**
+If the resolved model is empty, Ralph attempts to intelligently remove `{model}` placeholders and associated flags (like `--model {model}` or `-m {model}`) from the command string to prevent errors.
 
 ### Supported Providers
 

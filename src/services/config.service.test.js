@@ -64,5 +64,19 @@ describe("ConfigService", () => {
             expect(config.providers["custom-ai"]).toBeDefined();
             expect(config.providers["custom-ai"].command).toBe("custom-ai {prompt}");
         });
+
+        it("should not enforce 'model' property in config", () => {
+            const configContent = `
+                module.exports = {
+                    retries: 5
+                };
+            `;
+            fs.writeFileSync(path.join(tmpDir, "ralph.config.js"), configContent);
+
+            const config = loadConfig(tmpDir);
+
+            expect(config.model).toBeUndefined();
+            expect(config.retries).toBe(5);
+        });
     });
 });
