@@ -143,3 +143,6 @@ vite.config.ts.timestamp-*
 .mcp.json
 
 tasks/draft/
+
+# Ralph context
+.ralph/context/

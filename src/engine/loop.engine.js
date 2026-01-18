@@ -2,6 +2,7 @@ const defaultFs = require("fs-extra");
 const path = require("path");
 const defaultMatter = require("gray-matter");
 const { execSync: defaultExecSync } = require("child_process");
+const { ContextService } = require("../services/context.service");
 
 async function runTask(filePath, fileName, dirs, { 
     aiService, 
@@ -14,6 +15,7 @@ async function runTask(filePath, fileName, dirs, {
     ...options 
 }) {
     const { data, content } = matter(fs.readFileSync(filePath, "utf8"));
+    const contextService = new ContextService(config, fs);
     let history = [];
     let success = false;
     
@@ -33,7 +35,9 @@ async function runTask(filePath, fileName, dirs, {
             config,
             files: data.affected_files,
             model,
-            timeout: timeouts.ai
+            timeout: timeouts.ai,
+            contextService,
+            task: { data, content, history }
         });
         
         history.push(`### Attempt ${i}\n${aiOutput}`);

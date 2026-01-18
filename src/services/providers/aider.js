@@ -8,7 +8,13 @@ module.exports = {
      * @returns {object} - { command: string, args: string[] }
      */
     build: (prompt, { model, files }) => {
-        const args = ["--message", prompt];
+        let message = prompt;
+        // If prompt is a file path to the context file, instruct Aider to read it
+        if (prompt.endsWith(".md") && (prompt.includes(".ralph") || prompt.includes("/context/"))) {
+            message = `Read instructions in ${prompt}`;
+        }
+
+        const args = ["--message", message];
         
         if (files) {
             // Split files string into array if it's space-separated, or just push if single

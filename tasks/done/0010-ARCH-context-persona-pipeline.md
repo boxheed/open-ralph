@@ -62,8 +62,8 @@ Implement a robust "Prompt Engineering" pipeline that separates **Context Constr
     - Integration tests ensuring `ai.service` calls the context builder.
 
 ## Acceptance Criteria
-- [ ] `ContextService` correctly loads personas from `.ralph/personas/`.
-- [ ] `ContextService` generates a valid `.ralph/context/current_task.md` file containing Persona + Task + Constraints.
-- [ ] `ai.service.js` orchestrates the creation of the context file before invoking the provider.
-- [ ] `aider.js` and `gemini.js` are updated to consume the context file path.
-- [ ] Tests verify the hierarchy of persona resolution.
+- [x] `ContextService` correctly loads personas from `.ralph/personas/`.
+- [x] `ContextService` generates a valid `.ralph/context/current_task.md` file containing Persona + Task + Constraints.
+- [x] `ai.service.js` orchestrates the creation of the context file before invoking the provider.
+- [x] `aider.js` and `gemini.js` are updated to consume the context file path.
+- [x] Tests verify the hierarchy of persona resolution.

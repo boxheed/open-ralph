@@ -5,8 +5,10 @@ const DEFAULTS = {
     dirs: {
         todo: "./tasks/todo",
         done: "./tasks/done",
-        failed: "./tasks/failed"
+        failed: "./tasks/failed",
+        personas: "./.ralph/personas"
     },
+    defaultPersona: "ralph",
     retries: 3,
     timeouts: {
         ai: 1200000, // 20 minutes

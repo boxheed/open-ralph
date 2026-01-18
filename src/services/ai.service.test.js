@@ -103,4 +103,30 @@ describe('ai.service', () => {
         await expect(aiService.callAI('p', { provider: 'unknown' }))
             .rejects.toThrow('Unknown provider');
     });
+
+    // --- Context Service Integration ---
+
+    it('should use ContextService to build prompt if provided', async () => {
+        const mockContextService = {
+            buildContext: vi.fn().mockReturnValue('/path/to/context.md')
+        };
+        const mockTask = { content: 'Do task', data: {} };
+        
+        const mockProvider = {
+            build: vi.fn().mockReturnValue({ command: 'cmd', args: [] })
+        };
+        const config = { providers: { 'test': mockProvider } };
+
+        await aiService.callAI('original prompt', {
+            spawn: mockSpawn,
+            provider: 'test',
+            config,
+            contextService: mockContextService,
+            task: mockTask
+        });
+
+        expect(mockContextService.buildContext).toHaveBeenCalledWith(mockTask);
+        // Provider should receive the file path from ContextService, not 'original prompt'
+        expect(mockProvider.build).toHaveBeenCalledWith('/path/to/context.md', expect.anything());
+    });
 });

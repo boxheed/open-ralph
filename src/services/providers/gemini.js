@@ -7,7 +7,14 @@ module.exports = {
      * @returns {object} - { command: string, args: string[] }
      */
     build: (prompt, { model }) => {
-        const args = [prompt, "--yolo"];
+        let args = [];
+        // If prompt is a file path to the context file, use --text flag
+        if (prompt.endsWith(".md") && (prompt.includes(".ralph") || prompt.includes("/context/"))) {
+            args = ["--text", prompt, "--yolo"];
+        } else {
+            args = [prompt, "--yolo"];
+        }
+
         if (model) {
             args.push("--model", model);
         }

@@ -8,8 +8,18 @@ const defaultSpawn = require("child_process").spawn;
  * Providers must export a `build(prompt, context)` function which returns
  * structured command arguments, allowing for safe `spawn` execution.
  */
-function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}, files = "", model = null, timeout = 0 } = {}) {
+function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}, files = "", model = null, timeout = 0, contextService = null, task = null } = {}) {
     return new Promise((resolve, reject) => {
+        // If ContextService is provided, build the context file and use its path as the prompt
+        if (contextService && task) {
+            try {
+                prompt = contextService.buildContext(task);
+                console.log(`DEBUG: Context built at ${prompt}`);
+            } catch (err) {
+                return reject(new Error(`Failed to build context: ${err.message}`));
+            }
+        }
+
         const providers = config.providers || {};
         const providerConfig = providers[provider];
         
