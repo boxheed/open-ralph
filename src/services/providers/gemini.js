@@ -1,4 +1,4 @@
-const defaultFs = require("fs");
+const fs = require("fs");
 
 module.exports = {
     name: "gemini",
