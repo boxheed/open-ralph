@@ -1,4 +1,7 @@
 module.exports = {
     name: "opencode",
-    command: "opencode {prompt}"
+    build: (prompt) => ({
+        command: "opencode",
+        args: [prompt]
+    })
 };

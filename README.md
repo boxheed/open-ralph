@@ -3,8 +3,6 @@
 
 Ralph Agent is a platform-agnostic implementation of the **Ralph Wiggum Pattern**. Unlike traditional AI coding assistants that simply generate code, Ralph operates in a **Propose → Execute → Verify → Fix** loop. It treats the AI as a junior engineer that is not allowed to commit code until the validation tests pass.
 
-
-
 ---
 
 ## 🛠 Features
@@ -29,12 +27,13 @@ Ralph Agent is a platform-agnostic implementation of the **Ralph Wiggum Pattern*
 Install the agent directly from the repository to use the ralph command anywhere:
 
 ```bash
-npm install -g [https://github.com/your-username/ralph-agent](https://github.com/your-username/ralph-agent)
+npm install -g https://github.com/your-username/ralph-agent
 ```
+
 ### Local Development Setup
 
-```
-git clone [https://github.com/boxheed/open-ralph.git](https://github.com/boxheed/open-ralph.git)
+```bash
+git clone https://github.com/boxheed/open-ralph.git
 cd open-ralph
 npm install
 npm link
@@ -42,17 +41,16 @@ npm link
 
 ## 📖 How to Use
 
-  1. Initialize a Project   
-  Run the setup command in your target repository to create the task folders:   
+### 1. Initialize a Project   
+Run the setup command in your target repository to create the task folders:   
 ```bash
 ralph setup
 ```
 
-  2. Author a Task   
-  Create a .md file in `tasks/todo/`. The filename determines the order of execution (e.g., `01_fix_header.md`).
+### 2. Author a Task   
+Create a `.md` file in `tasks/todo/`. The filename determines the order of execution (e.g., `01_fix_header.md`).
 
-
-  Example Task: 
+**Example Task:**
 ```markdown
 ---
 task_id: "AUTH-001"
@@ -68,7 +66,8 @@ The token is currently set to expire in `5m`. We need to change this to `1h` (on
 2. Update the value to 1 hour.
 3. Run the validation test to confirm the token generated actually has a 1-hour lifespan.
 ```
-  3. Run the agent   
+
+### 3. Run the Agent   
 ```bash
 # Headless mode (Automatic)
 ralph
@@ -77,6 +76,7 @@ ralph
 ralph --interactive
 ```
 
+---
 
 ## ⚙️ Configuration
 
@@ -93,7 +93,7 @@ module.exports = {
   // model: "gpt-4", // Optional: Global model override
   providers: {
     aider: {
-      // Override default command template
+      // Override default behavior
       command: "aider --model gpt-4 --message \"{prompt}\" {files}"
     }
   }
@@ -120,9 +120,6 @@ Ralph uses a flexible model configuration strategy. You are not required to set 
 3.  **Global Config:** Defined in `ralph.config.js`.
 4.  **CLI Native Default:** (Lowest priority) If no model is resolved, Ralph runs the command without a model flag, letting the CLI tool choose its default.
 
-**"No Model" Handling:**
-If the resolved model is empty, Ralph attempts to intelligently remove `{model}` placeholders and associated flags (like `--model {model}` or `-m {model}`) from the command string to prevent errors.
-
 ### Supported Providers
 
 - **gemini** (Default)
@@ -138,36 +135,55 @@ If the resolved model is empty, Ralph attempts to intelligently remove `{model}`
 
 You can add your own AI providers by creating a `.js` file in your project's `.ralph/providers/` directory.
 
+**Strategy Pattern (Recommended):**
+Export a `build` function that returns the structured command and arguments. This is safer and more flexible.
+
 **Example `.ralph/providers/my-custom-ai.js`**:
 ```javascript
 module.exports = {
   name: "my-custom-ai",
-  command: "my-cli --prompt {prompt} --model {model}",
-  defaultModel: "standard-model",
-  
-  // Optional: customize how the prompt is formatted before it's sent to the CLI
-  getPrompt: (prompt, { model, files }) => {
-    return `Model: ${model}\nFiles: ${files}\n\nTask: ${prompt}`;
+  /**
+   * Builds the command execution details.
+   * @param {string} prompt - The task prompt.
+   * @param {object} context - { model, files }
+   * @returns {object} - { command: string, args: string[] }
+   */
+  build: (prompt, { model, files }) => {
+    const args = ["--task", prompt];
+    if (model) args.push("--engine", model);
+    if (files) args.push(...files.split(","));
+    
+    return {
+      command: "my-cli",
+      args
+    };
   }
 };
 ```
 
-Once added, you can use it by setting `provider: "my-custom-ai"` in your config or task front matter.
+**Legacy Pattern (String Template):**
+Export a `command` string with placeholders `{prompt}`, `{files}`, and `{model}`.
+```javascript
+module.exports = {
+  name: "simple-ai",
+  command: "simple-cli --task \"{prompt}\" --model {model}"
+};
+```
 
 ## 🏗 Modular Architecture
 
   * `bin/ralph.js`: CLI Entry point and argument parsing.
   * `src/engine/`: The Core Loop logic and state management.
-  * `src/services/`: Pluggable connectors for Git and AI (Gemini).
+  * `src/services/`: Pluggable connectors for Git and AI.
 
 ## 🛡 Safety & Circuit Breakers
-  * Git Check: Ralph will refuse to run if the repository has uncommitted changes.
-  * Max Retries: If a validation command fails 3 times, Ralph moves the task to /failed and stops to prevent infinite loops.
-  * Interactive Gate: Use `--interactive` to inspect code changes in your IDE before the agent executes the validation shell commands.
+  * **Git Check:** Ralph will refuse to run if the repository has uncommitted changes.
+  * **Max Retries:** If a validation command fails 3 times, Ralph moves the task to `/failed` and stops to prevent infinite loops.
+  * **Interactive Gate:** Use `--interactive` to inspect code changes in your IDE before the agent executes the validation shell commands.
 
-  ## 🤝 Contributing
-  * Create a task in /tasks/todo for your feature.
-  * Run ralph to let the agent build its own improvements.
+## 🤝 Contributing
+  * Create a task in `/tasks/todo` for your feature.
+  * Run `ralph` to let the agent build its own improvements.
   * Submit a PR!
 
 ## 📄 License

@@ -1,4 +1,7 @@
 module.exports = {
     name: "nanocoder",
-    command: "nanocoder {prompt}"
+    build: (prompt) => ({
+        command: "nanocoder",
+        args: [prompt]
+    })
 };

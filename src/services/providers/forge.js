@@ -1,4 +1,7 @@
 module.exports = {
     name: "forge",
-    command: "forge {prompt}"
+    build: (prompt) => ({
+        command: "forge",
+        args: [prompt]
+    })
 };

@@ -1,4 +1,7 @@
 module.exports = {
     name: "qwen-code",
-    command: "qwen-code {prompt}"
+    build: (prompt) => ({
+        command: "qwen-code",
+        args: [prompt]
+    })
 };

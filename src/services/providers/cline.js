@@ -1,4 +1,7 @@
 module.exports = {
     name: "cline",
-    command: "cline {prompt}"
+    build: (prompt) => ({
+        command: "cline",
+        args: [prompt]
+    })
 };

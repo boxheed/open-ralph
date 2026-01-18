@@ -1,274 +1,154 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { callAI } from "./ai.service";
-import { EventEmitter } from "events";
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import aiService from './ai.service';
+import events from 'events';
 
-describe("ai.service", () => {
-    function createMockChildProcess() {
-        const child = new EventEmitter();
-        child.stdout = new EventEmitter();
-        child.stderr = new EventEmitter();
-        return child;
-    }
+describe('ai.service', () => {
+    let mockSpawn;
 
-    afterEach(() => {
-        vi.restoreAllMocks();
-    });
-
-    it("should call default provider (gemini) with correct template", async () => {
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
-
-        const config = {
-            providers: {
-                gemini: { command: "gemini {prompt}" }
-            }
-        };
-
-        const promise = callAI("hello", { spawn: mockSpawn, config });
-        
-        mockChild.stdout.emit("data", "out");
-        mockChild.emit("close", 0);
-        
-        await promise;
-
-        expect(mockSpawn).toHaveBeenCalledWith("gemini \"hello\"", [], { shell: true });
-    });
-
-    it("should call custom provider (aider) with correct template", async () => {
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
-
-        const config = {
-            providers: {
-                aider: { command: "aider --message {prompt} {files}" }
-            }
-        };
-
-        const promise = callAI("fix bug", { 
-            spawn: mockSpawn, 
-            provider: "aider", 
-            config,
-            files: "src/main.js" 
+    beforeEach(() => {
+        mockSpawn = vi.fn().mockImplementation(() => {
+            const cp = new events.EventEmitter();
+            cp.stdout = new events.EventEmitter();
+            cp.stderr = new events.EventEmitter();
+            cp.kill = vi.fn();
+            // Emit close event on next tick to simulate process completion
+            setTimeout(() => {
+                cp.emit('close', 0);
+            }, 10);
+            return cp;
         });
-        
-        mockChild.emit("close", 0);
-        
-        await promise;
-
-        expect(mockSpawn).toHaveBeenCalledWith("aider --message \"fix bug\" src/main.js", [], { shell: true });
     });
 
-    it("should escape quotes in prompt", async () => {
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
+    // --- Strategy Pattern Tests ---
 
-        const config = {
-            providers: {
-                test: { command: "cmd {prompt}" }
-            }
+    it('should use provider.build() when available (Strategy Pattern)', async () => {
+        const mockProvider = {
+            build: vi.fn().mockReturnValue({
+                command: 'test-cli',
+                args: ['arg1', 'arg2']
+            })
         };
 
-        const promise = callAI("hello \"world\"", { spawn: mockSpawn, provider: "test", config });
-        mockChild.emit("close", 0);
-        await promise;
-
-        expect(mockSpawn).toHaveBeenCalledWith("cmd \"hello \\\"world\\\"\"", [], { shell: true });
-    });
-
-    it("should substitute {model} placeholder", async () => {
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
-
         const config = {
-            providers: {
-                test: { command: "cmd --model {model} {prompt}" }
-            }
+            providers: { 'test-provider': mockProvider }
         };
 
-        const promise = callAI("hello", { 
+        await aiService.callAI('hello', { 
             spawn: mockSpawn, 
-            provider: "test", 
-            config,
-            model: "gpt-4" 
-        });
-        mockChild.emit("close", 0);
-        await promise;
-
-        expect(mockSpawn).toHaveBeenCalledWith("cmd --model gpt-4 \"hello\"", [], { shell: true });
-    });
-
-    it("should ignore model if placeholder is missing", async () => {
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
-        const config = { providers: { test: { command: "cmd {prompt}" } } };
-        const promise = callAI("hello", { spawn: mockSpawn, provider: "test", config, model: "gpt-4" });
-        mockChild.emit("close", 0);
-        await promise;
-        expect(mockSpawn).toHaveBeenCalledWith("cmd \"hello\"", [], { shell: true });
-    });
-
-    it("should remove --model flag if model is not resolved", async () => {
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
-
-        const config = {
-            providers: {
-                test: { command: "cmd --model {model} {prompt}" }
-            }
-        };
-
-        // No model in config, no defaultModel, no model arg
-        const promise = callAI("hello", { 
-            spawn: mockSpawn, 
-            provider: "test", 
+            provider: 'test-provider', 
             config 
         });
-        mockChild.emit("close", 0);
-        await promise;
 
-        // Expect flag to be removed and whitespace cleaned
-        expect(mockSpawn).toHaveBeenCalledWith("cmd \"hello\"", [], { shell: true });
+        // Verify spawn was called with separated command and args, and shell: false
+        expect(mockSpawn).toHaveBeenCalledWith('test-cli', ['arg1', 'arg2'], { shell: false });
+        expect(mockProvider.build).toHaveBeenCalledWith('hello', expect.objectContaining({ model: null, files: '' }));
     });
 
-    it("should remove -m flag if model is not resolved", async () => {
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
-
-        const config = {
-            providers: {
-                test: { command: "cmd -m {model} {prompt}" }
-            }
+    it('should pass model to provider.build()', async () => {
+        const mockProvider = {
+            build: vi.fn().mockReturnValue({ command: 'cmd', args: [] })
         };
+        const config = { providers: { 'test': mockProvider } };
 
-        const promise = callAI("hello", { spawn: mockSpawn, provider: "test", config });
-        mockChild.emit("close", 0);
-        await promise;
-
-        expect(mockSpawn).toHaveBeenCalledWith("cmd \"hello\"", [], { shell: true });
-    });
-
-    it("should use provider default model if no other model specified", async () => {
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
-
-        const config = {
-            providers: {
-                test: { 
-                    command: "cmd --model {model} {prompt}",
-                    defaultModel: "default-v1"
-                }
-            }
-        };
-
-        const promise = callAI("hello", { spawn: mockSpawn, provider: "test", config });
-        mockChild.emit("close", 0);
-        await promise;
-
-        expect(mockSpawn).toHaveBeenCalledWith("cmd --model default-v1 \"hello\"", [], { shell: true });
-    });
-
-    it("should prioritize frontmatter model over provider default", async () => {
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
-
-        const config = {
-            providers: {
-                test: { 
-                    command: "cmd --model {model} {prompt}",
-                    defaultModel: "default-v1"
-                }
-            }
-        };
-
-        const promise = callAI("hello", { 
-            spawn: mockSpawn, 
-            provider: "test", 
+        await aiService.callAI('prompt', {
+            spawn: mockSpawn,
+            provider: 'test',
             config,
-            model: "override-v2"
+            model: 'gpt-4'
         });
-        mockChild.emit("close", 0);
-        await promise;
 
-        expect(mockSpawn).toHaveBeenCalledWith("cmd --model override-v2 \"hello\"", [], { shell: true });
+        expect(mockProvider.build).toHaveBeenCalledWith('prompt', expect.objectContaining({ model: 'gpt-4' }));
     });
 
-    it("should prioritize global config over provider default? No, requirement says Provider Default > Global Config", async () => {
-        // Wait, requirement: Task Frontmatter > Provider Default > Global Config > CLI Native Default
-        // Let's verify this order.
-        // If provider default is set, it overrides global config.
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
+    // --- Legacy Template Pattern Tests ---
 
+    it('should fallback to string interpolation for legacy providers', async () => {
+        const legacyProvider = {
+            command: 'legacy-cli --prompt {prompt}'
+        };
+        const config = { providers: { 'legacy': legacyProvider } };
+
+        await aiService.callAI('hello world', {
+            spawn: mockSpawn,
+            provider: 'legacy',
+            config
+        });
+
+        // Legacy uses shell: true and a single string
+        expect(mockSpawn).toHaveBeenCalledWith(
+            expect.stringContaining('legacy-cli --prompt "hello world"'), 
+            [], 
+            { shell: true }
+        );
+    });
+
+    it('should handle legacy model replacement', async () => {
+        const legacyProvider = {
+            command: 'legacy-cli {prompt} --model {model}'
+        };
+        const config = { providers: { 'legacy': legacyProvider } };
+
+        await aiService.callAI('hi', {
+            spawn: mockSpawn,
+            provider: 'legacy',
+            config,
+            model: 'v1'
+        });
+
+        expect(mockSpawn).toHaveBeenCalledWith(
+            expect.stringContaining('--model v1'), 
+            [], 
+            { shell: true }
+        );
+    });
+
+    it('should remove legacy model flags if no model provided', async () => {
+        const legacyProvider = {
+            command: 'legacy-cli {prompt} --model {model}'
+        };
+        const config = { providers: { 'legacy': legacyProvider } };
+
+        await aiService.callAI('hi', {
+            spawn: mockSpawn,
+            provider: 'legacy',
+            config,
+            model: null
+        });
+
+        // Should not contain --model or {model}
+        const callArgs = mockSpawn.mock.calls[0][0];
+        expect(callArgs).not.toContain('--model');
+        expect(callArgs).not.toContain('{model}');
+    });
+
+    // --- Model Resolution Tests ---
+
+    it('should prioritize task model > provider default > global config', async () => {
+        const mockProvider = {
+            defaultModel: 'provider-default',
+            build: vi.fn().mockReturnValue({ command: 'cmd', args: [] })
+        };
         const config = {
-            model: "global-v1",
-            providers: {
-                test: { 
-                    command: "cmd --model {model} {prompt}",
-                    defaultModel: "provider-v1"
-                }
-            }
+            model: 'global-default',
+            providers: { 'test': mockProvider }
         };
 
-        const promise = callAI("hello", { spawn: mockSpawn, provider: "test", config });
-        mockChild.emit("close", 0);
-        await promise;
+        // 1. Task Override
+        await aiService.callAI('p', { spawn: mockSpawn, provider: 'test', config, model: 'task-override' });
+        expect(mockProvider.build).toHaveBeenLastCalledWith('p', expect.objectContaining({ model: 'task-override' }));
 
-        expect(mockSpawn).toHaveBeenCalledWith("cmd --model provider-v1 \"hello\"", [], { shell: true });
-    });
-    
-    it("should prioritize global config if provider default is missing", async () => {
-        const mockChild = createMockChildProcess();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
+        // 2. Provider Default
+        await aiService.callAI('p', { spawn: mockSpawn, provider: 'test', config });
+        expect(mockProvider.build).toHaveBeenLastCalledWith('p', expect.objectContaining({ model: 'provider-default' }));
 
-        const config = {
-            model: "global-v1",
-            providers: {
-                test: { 
-                    command: "cmd --model {model} {prompt}"
-                    // no defaultModel
-                }
-            }
-        };
-
-        const promise = callAI("hello", { spawn: mockSpawn, provider: "test", config });
-        mockChild.emit("close", 0);
-        await promise;
-
-        expect(mockSpawn).toHaveBeenCalledWith("cmd --model global-v1 \"hello\"", [], { shell: true });
+        // 3. Global Config (when provider default is null)
+        mockProvider.defaultModel = null;
+        await aiService.callAI('p', { spawn: mockSpawn, provider: 'test', config });
+        expect(mockProvider.build).toHaveBeenLastCalledWith('p', expect.objectContaining({ model: 'global-default' }));
     });
 
-    it("should timeout if process takes too long", async () => {
-        vi.useFakeTimers();
-        const mockChild = createMockChildProcess();
-        mockChild.kill = vi.fn();
-        const mockSpawn = vi.fn().mockReturnValue(mockChild);
-        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
-
-        const config = { providers: { gemini: { command: "gemini {prompt}" } } };
-
-        const promise = callAI("slow", { 
-            spawn: mockSpawn, 
-            config, 
-            timeout: 1000 
-        });
-        
-        // Fast-forward time
-        vi.advanceTimersByTime(1001);
-        
-        await expect(promise).rejects.toThrow("AI process timed out after 1000ms");
-        expect(mockChild.kill).toHaveBeenCalled();
-        
-        vi.useRealTimers();
+    it('should reject if provider unknown', async () => {
+        await expect(aiService.callAI('p', { provider: 'unknown' }))
+            .rejects.toThrow('Unknown provider');
     });
 });

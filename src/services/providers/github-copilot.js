@@ -1,4 +1,7 @@
 module.exports = {
     name: "github-copilot",
-    command: "gh copilot suggest {prompt}"
+    build: (prompt) => ({
+        command: "gh",
+        args: ["copilot", "suggest", prompt]
+    })
 };
