@@ -9,8 +9,8 @@ const DEFAULTS = {
     },
     retries: 3,
     timeouts: {
-        ai: 120000, // 2 minutes
-        validation: 300000 // 5 minutes
+        ai: 1200000, // 20 minutes
+        validation: 900000 // 15 minutes
     },
     provider: "gemini"
 };
