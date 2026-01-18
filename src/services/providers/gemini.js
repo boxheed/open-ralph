@@ -1,3 +1,5 @@
+const defaultFs = require("fs");
+
 module.exports = {
     name: "gemini",
     /**
