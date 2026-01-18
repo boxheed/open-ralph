@@ -46,7 +46,17 @@ async function runTask(filePath, fileName, dirs, {
             gitService.runValidation(data.validation_cmd, timeouts.validation);
             success = true;
             finalize(filePath, fileName, dirs.DONE, history, null, fs);
-            gitService.commit(`fix(${data.task_id}): automated task resolution`);
+
+            const movedTaskPath = path.join(dirs.DONE, fileName);
+            let filesToCommit = [movedTaskPath];
+            if (data.affected_files) {
+                if (Array.isArray(data.affected_files)) {
+                    filesToCommit = filesToCommit.concat(data.affected_files);
+                } else if (typeof data.affected_files === 'string') {
+                    filesToCommit = filesToCommit.concat(data.affected_files.split(',').map(s => s.trim()));
+                }
+            }
+            gitService.commit(`fix(${data.task_id}): automated task resolution`, filesToCommit);
             break;
         } catch (err) {
             if (i === retries) finalize(filePath, fileName, dirs.FAILED, history, err.message, fs);

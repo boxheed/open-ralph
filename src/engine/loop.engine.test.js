@@ -176,4 +176,46 @@ describe("loop.engine", () => {
         );
         expect(mockGitService.runValidation).toHaveBeenCalledWith("test", 2000);
     });
+
+    it("should pass affected files and moved task file to git commit", async () => {
+        mockMatter.mockReturnValue({
+            data: { task_id: "T_COMMIT", validation_cmd: "test", affected_files: ["src/a.js", "src/b.js"] },
+            content: "Task Content"
+        });
+        mockAiService.callAI.mockResolvedValue("Fix");
+        
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter
+        });
+
+        expect(mockGitService.commit).toHaveBeenCalledWith(
+            expect.stringContaining("fix(T_COMMIT)"),
+            expect.arrayContaining(["done/task.md", "src/a.js", "src/b.js"])
+        );
+    });
+
+    it("should handle comma-separated affected files string", async () => {
+        mockMatter.mockReturnValue({
+            data: { task_id: "T_COMMIT_STR", validation_cmd: "test", affected_files: "src/c.js, src/d.js" },
+            content: "Task Content"
+        });
+        mockAiService.callAI.mockResolvedValue("Fix");
+        
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter
+        });
+
+        expect(mockGitService.commit).toHaveBeenCalledWith(
+            expect.stringContaining("fix(T_COMMIT_STR)"),
+            expect.arrayContaining(["done/task.md", "src/c.js", "src/d.js"])
+        );
+    });
 });
