@@ -21,6 +21,7 @@ async function runTask(filePath, fileName, dirs, {
     
     const provider = data.provider || config.provider || "gemini";
     const model = data.model || config.model;
+    const timeouts = config.timeouts || {};
 
     for (let i = 1; i <= retries; i++) {
         logger.info(`   Attempt ${i}/${retries}...`);
@@ -31,7 +32,8 @@ async function runTask(filePath, fileName, dirs, {
             provider,
             config,
             files: data.affected_files,
-            model
+            model,
+            timeout: timeouts.ai
         });
         
         history.push(`### Attempt ${i}\n${aiOutput}`);
@@ -41,7 +43,7 @@ async function runTask(filePath, fileName, dirs, {
         }
 
         try {
-            gitService.runValidation(data.validation_cmd);
+            gitService.runValidation(data.validation_cmd, timeouts.validation);
             success = true;
             finalize(filePath, fileName, dirs.DONE, history, null, fs);
             gitService.commit(`fix(${data.task_id}): automated task resolution`);

@@ -8,6 +8,10 @@ const DEFAULTS = {
         failed: "./tasks/failed"
     },
     retries: 3,
+    timeouts: {
+        ai: 120000, // 2 minutes
+        validation: 300000 // 5 minutes
+    },
     provider: "gemini"
 };
 

@@ -14,8 +14,12 @@ class GitService {
         this.execSync(`git commit -m "${message}"`);
     }
 
-    runValidation(cmd) {
-        this.execSync(cmd, { stdio: 'inherit' });
+    runValidation(cmd, timeout = 0) {
+        const options = { stdio: 'inherit' };
+        if (timeout > 0) {
+            options.timeout = timeout;
+        }
+        this.execSync(cmd, options);
     }
 }
 

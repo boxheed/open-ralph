@@ -45,5 +45,13 @@ describe('GitService', () => {
 
             expect(mockExecSync).toHaveBeenCalledWith(cmd, { stdio: 'inherit' });
         });
+
+        it('should pass timeout to execSync if provided', () => {
+            const cmd = 'npm test';
+            const timeout = 5000;
+            gitService.runValidation(cmd, timeout);
+
+            expect(mockExecSync).toHaveBeenCalledWith(cmd, { stdio: 'inherit', timeout });
+        });
     });
 });

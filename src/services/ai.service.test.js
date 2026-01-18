@@ -111,4 +111,28 @@ describe("ai.service", () => {
         await promise;
         expect(mockSpawn).toHaveBeenCalledWith("cmd \"hello\"", [], { shell: true });
     });
+
+    it("should timeout if process takes too long", async () => {
+        vi.useFakeTimers();
+        const mockChild = createMockChildProcess();
+        mockChild.kill = vi.fn();
+        const mockSpawn = vi.fn().mockReturnValue(mockChild);
+        vi.spyOn(process.stdout, "write").mockImplementation(() => {});
+
+        const config = { providers: { gemini: { command: "gemini {prompt}" } } };
+
+        const promise = callAI("slow", { 
+            spawn: mockSpawn, 
+            config, 
+            timeout: 1000 
+        });
+        
+        // Fast-forward time
+        vi.advanceTimersByTime(1001);
+        
+        await expect(promise).rejects.toThrow("AI process timed out after 1000ms");
+        expect(mockChild.kill).toHaveBeenCalled();
+        
+        vi.useRealTimers();
+    });
 });

@@ -50,7 +50,7 @@ describe("loop.engine", () => {
         );
         
         expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining("Attempt 1/3"));
-        expect(mockGitService.runValidation).toHaveBeenCalledWith("test");
+        expect(mockGitService.runValidation).toHaveBeenCalledWith("test", undefined);
         expect(mockFs.moveSync).toHaveBeenCalledWith(filePath, "done/task.md");
     });
 
@@ -155,5 +155,25 @@ describe("loop.engine", () => {
             expect.any(String), 
             expect.objectContaining({ model: "task-model" }) 
         ); 
-    }); 
+    });
+
+    it("should pass timeout values from config", async () => {
+        mockAiService.callAI.mockResolvedValue("AI Code Fix");
+        const timeouts = { ai: 1000, validation: 2000 };
+
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter,
+            config: { timeouts }
+        });
+
+        expect(mockAiService.callAI).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ timeout: 1000 })
+        );
+        expect(mockGitService.runValidation).toHaveBeenCalledWith("test", 2000);
+    });
 });
