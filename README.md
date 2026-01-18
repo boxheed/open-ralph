@@ -119,6 +119,26 @@ provider: "gemini"
 - **opencode**
 - **qwen-code**
 
+### Custom Providers
+
+You can add your own AI providers by creating a `.js` file in your project's `.ralph/providers/` directory.
+
+**Example `.ralph/providers/my-custom-ai.js`**:
+```javascript
+module.exports = {
+  name: "my-custom-ai",
+  command: "my-cli --prompt {prompt} --model {model}",
+  defaultModel: "standard-model",
+  
+  // Optional: customize how the prompt is formatted before it's sent to the CLI
+  getPrompt: (prompt, { model, files }) => {
+    return `Model: ${model}\nFiles: ${files}\n\nTask: ${prompt}`;
+  }
+};
+```
+
+Once added, you can use it by setting `provider: "my-custom-ai"` in your config or task front matter.
+
 ## 🏗 Modular Architecture
 
   * `bin/ralph.js`: CLI Entry point and argument parsing.
