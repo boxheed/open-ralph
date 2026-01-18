@@ -1,4 +1,5 @@
 const defaultSpawn = require("child_process").spawn;
+const defaultFs = require("fs-extra");
 
 /**
  * Executes an AI provider command.
@@ -8,7 +9,7 @@ const defaultSpawn = require("child_process").spawn;
  * Providers must export a `build(prompt, context)` function which returns
  * structured command arguments, allowing for safe `spawn` execution.
  */
-function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}, files = "", model = null, timeout = 0, contextService = null, task = null } = {}) {
+function callAI(prompt, { spawn = defaultSpawn, fs = defaultFs, provider = "gemini", config = {}, files = "", model = null, timeout = 0, contextService = null, task = null } = {}) {
     return new Promise((resolve, reject) => {
         // If ContextService is provided, build the context file and use its path as the prompt
         if (contextService && task) {
@@ -35,7 +36,8 @@ function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}
         }
 
         // --- Strategy Pattern (Strict) ---
-        const buildResult = providerConfig.build(prompt, { model: resolvedModel, files });
+        // Inject fs into the provider context
+        const buildResult = providerConfig.build(prompt, { model: resolvedModel, files, fs });
         const executable = buildResult.command;
         const args = buildResult.args || [];
         
