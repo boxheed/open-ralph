@@ -14,9 +14,15 @@ function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}
              return reject(new Error(`No command template for provider: ${provider}`));
         }
         
-        const safePrompt = prompt.replace(/"/g, "\\\"");
+        // Priority: Frontmatter model > Provider default model > Global config model
+        const resolvedModel = model || providerConfig.defaultModel || config.model || "";
+
+        // Allow provider to customize the prompt
+        const finalPrompt = providerConfig.getPrompt ? providerConfig.getPrompt(prompt, { model: resolvedModel, files }) : prompt;
+        
+        const safePrompt = finalPrompt.replace(/"/g, "\\\"");
         const safeFiles = files;
-        const safeModel = model || config.model || "";
+        const safeModel = resolvedModel;
 
         const command = commandTemplate
             .replace(/{prompt}/g, `"${safePrompt}"`)

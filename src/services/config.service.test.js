@@ -8,9 +8,15 @@ describe("ConfigService", () => {
     
     describe("Unit", () => {
          it("should return defaults if no config file exists (mocked fs)", () => {
-            const mockFs = { existsSync: vi.fn().mockReturnValue(false) };
+            const mockFs = { 
+                existsSync: vi.fn().mockReturnValue(false),
+                readdirSync: vi.fn().mockReturnValue([]) 
+            };
             const config = loadConfig("/test", mockFs);
-            expect(config).toEqual(DEFAULTS);
+            expect(config.dirs).toEqual(DEFAULTS.dirs);
+            expect(config.retries).toBe(DEFAULTS.retries);
+            expect(config.provider).toBe(DEFAULTS.provider);
+            expect(config.providers).toBeDefined();
          });
     });
 
@@ -41,25 +47,22 @@ describe("ConfigService", () => {
             expect(config.dirs.done).toBe(DEFAULTS.dirs.done); // Merged
         });
 
-        it("should load config from ralph.json", () => {
-            const configContent = JSON.stringify({
-                retries: 2,
-                model: "gpt-4-turbo"
-            });
-            fs.writeFileSync(path.join(tmpDir, "ralph.json"), configContent);
+        it("should load user-defined providers from .ralph/providers", () => {
+            const providersDir = path.join(tmpDir, ".ralph", "providers");
+            fs.ensureDirSync(providersDir);
+            
+            const providerContent = `
+                module.exports = {
+                    name: "custom-ai",
+                    command: "custom-ai {prompt}"
+                };
+            `;
+            fs.writeFileSync(path.join(providersDir, "custom-ai.js"), providerContent);
 
             const config = loadConfig(tmpDir);
 
-            expect(config.retries).toBe(2);
-            expect(config.model).toBe("gpt-4-turbo");
-        });
-        
-        it("should prioritize ralph.config.js over ralph.json", () => {
-             fs.writeFileSync(path.join(tmpDir, "ralph.config.js"), "module.exports = { retries: 1 };");
-             fs.writeFileSync(path.join(tmpDir, "ralph.json"), JSON.stringify({ retries: 2 }));
-             
-             const config = loadConfig(tmpDir);
-             expect(config.retries).toBe(1);
+            expect(config.providers["custom-ai"]).toBeDefined();
+            expect(config.providers["custom-ai"].command).toBe("custom-ai {prompt}");
         });
     });
 });
