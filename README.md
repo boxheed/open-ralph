@@ -42,7 +42,7 @@ npm link
 ## 📖 How to Use
 
 ### 1. Initialize a Project   
-Run the setup command in your target repository to create the task folders:   
+Run the setup command in your target repository to initialize the environment (task directories, config, and default personas):   
 ```bash
 ralph setup
 ```

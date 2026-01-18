@@ -7,7 +7,7 @@
     "ralph": "./bin/ralph.js"
   },
   "scripts": {
-    "setup": "mkdir -p tasks/todo tasks/done tasks/failed",
+    "setup": "node bin/ralph.js setup",
     "test": "vitest run --coverage --coverage.include=src/**/*.js"
   },
   "dependencies": {
