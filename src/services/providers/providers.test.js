@@ -23,24 +23,22 @@ describe('Providers Service', () => {
         };
     });
 
-    describe('Standard Providers (File Context Support)', () => {
-        const standardProviders = [
-            { 
-                module: githubCopilot, 
-                cmd: 'copilot', 
-                argsPrefix: ['--allow-all-tools', '--prompt'] 
-            },
-            { module: cline, cmd: 'cline', argsPrefix: [] },
-            { module: forge, cmd: 'forge', argsPrefix: [] },
-            { module: nanocoder, cmd: 'nanocoder', argsPrefix: [] },
-            { module: opencode, cmd: 'opencode', argsPrefix: [] },
-            { 
-                module: qwenCode, 
-                cmd: 'qwen', 
-                argsPrefix: ['--yolo'] 
-            },
-        ];
-
+        describe('Standard Providers (File Content Injection)', () => {
+            const standardProviders = [
+                { 
+                    module: githubCopilot, 
+                    cmd: 'copilot', 
+                    argsPrefix: ['--allow-all-tools', '--prompt'] 
+                },
+                { module: cline, cmd: 'cline', argsPrefix: [] },
+                { module: nanocoder, cmd: 'nanocoder', argsPrefix: [] },
+                { module: opencode, cmd: 'opencode', argsPrefix: [] },
+                { 
+                    module: qwenCode, 
+                    cmd: 'qwen', 
+                    argsPrefix: ['--yolo'] 
+                },
+            ];
         standardProviders.forEach(({ module, cmd, argsPrefix }) => {
             describe(module.name, () => {
                 it('should use raw text if prompt is not a file', () => {
@@ -78,13 +76,34 @@ describe('Providers Service', () => {
         });
     });
 
+    describe('Forge Provider', () => {
+        it('should use stdin for prompt', () => {
+            mockFs.existsSync.mockReturnValue(false);
+            const result = forge.build("hello", { fs: mockFs });
+            expect(result.command).toBe("forge");
+            expect(result.args).toEqual([]);
+            expect(result.stdin).toBe("hello");
+        });
+
+        it('should read file content into stdin if prompt is a file', () => {
+            const filePath = "context.md";
+            const content = "forge context";
+            mockFs.existsSync.mockReturnValue(true);
+            mockFs.readFileSync.mockReturnValue(content);
+
+            const result = forge.build(filePath, { fs: mockFs });
+            expect(result.stdin).toBe(content);
+            expect(result.args).toEqual([]);
+        });
+    });
+
     describe('Gemini Provider', () => {
         it('should include --yolo flag', () => {
             mockFs.existsSync.mockReturnValue(false);
             const result = gemini.build("hello", { fs: mockFs });
             expect(result.command).toBe("gemini");
             expect(result.args).toContain("--yolo");
-            expect(result.args).toContain("hello");
+            expect(result.stdin).toBe("hello");
         });
 
         it('should inject model flag if provided', () => {
@@ -94,15 +113,16 @@ describe('Providers Service', () => {
             expect(result.args).toContain("gemini-2.0");
         });
 
-        it('should read file content if prompt is a file', () => {
+        it('should read file content into stdin if prompt is a file', () => {
             const filePath = "context.md";
             const content = "file content";
             mockFs.existsSync.mockReturnValue(true);
             mockFs.readFileSync.mockReturnValue(content);
 
             const result = gemini.build(filePath, { fs: mockFs });
-            expect(result.args).toContain(content);
-            expect(result.args).not.toContain(filePath); // Should be replaced
+            expect(result.stdin).toBe(content);
+            expect(result.args).not.toContain(filePath);
+            expect(result.args).not.toContain("--file");
         });
     });
 

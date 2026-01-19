@@ -45,11 +45,17 @@ class AIService {
         const buildResult = providerConfig.build(finalPrompt, { model: resolvedModel, files, fs: this.fs });
         const executable = buildResult.command;
         const args = buildResult.args || [];
+        const stdin = buildResult.stdin || null;
         
         return new Promise((resolve, reject) => {
             const child = this.spawn(executable, args, { shell: false });
             
             let output = "";
+
+            if (stdin) {
+                child.stdin.write(stdin);
+                child.stdin.end();
+            }
             let timer = null;
 
             if (timeout > 0) {
