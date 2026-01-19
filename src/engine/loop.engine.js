@@ -1,5 +1,6 @@
 const EventEmitter = require("events");
 const path = require("path");
+const { deriveCommitMessage } = require("../services/task.msg.service");
 
 /**
  * Standard Event Names for the LoopEngine
@@ -130,9 +131,9 @@ class LoopEngine extends EventEmitter {
     }
 
     _commitTask(task) {
-        // Simply commit everything. GitService.commit() now defaults to 'git add .'
-        // which captures the task move (todo -> done) and all AI changes.
-        this.gitService.commit(`fix(${task.data.task_id}): automated task resolution`);
+        // Use smart commit message derivation
+        const message = deriveCommitMessage(task);
+        this.gitService.commit(message);
     }
 }
 

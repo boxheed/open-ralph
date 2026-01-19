@@ -49,6 +49,21 @@ describe("LoopEngine (Event-Driven)", () => {
         expect(taskRepository.markDone).toHaveBeenCalled();
     });
 
+    it("should use a derived commit message on success", async () => {
+        const task = { 
+            fileName: "0001-FEAT-test.md", 
+            data: { task_id: "FEAT-1" }, 
+            content: "# Objective\nImplement dynamic message." 
+        };
+        taskRepository.listTodo.mockReturnValue(["0001-FEAT-test.md"]);
+        taskRepository.loadTask.mockReturnValue(task);
+        aiService.callAI.mockResolvedValue("fixed");
+
+        await engine.runAll();
+
+        expect(gitService.commit).toHaveBeenCalledWith("feat(FEAT-1): Implement dynamic message.");
+    });
+
     it("should emit failure events", async () => {
         const task = { 
             fileName: "task.md", 
