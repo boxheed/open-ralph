@@ -18,7 +18,7 @@ describe("LoggerService", () => {
     it("should log info messages", () => {
         logger = new LoggerService("INFO");
         logger.info("test");
-        expect(console.log).toHaveBeenCalledWith("[INFO] test");
+        expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/INFO.*test/));
     });
 
     it("should not log debug messages if level is INFO", () => {
@@ -30,13 +30,13 @@ describe("LoggerService", () => {
     it("should log debug messages if level is DEBUG", () => {
         logger = new LoggerService("DEBUG");
         logger.debug("test");
-        expect(console.debug).toHaveBeenCalledWith("[DEBUG] test");
+        expect(console.debug).toHaveBeenCalledWith(expect.stringMatching(/DEBUG.*test/));
     });
 
     it("should log error messages", () => {
         logger = new LoggerService("INFO");
         logger.error("test");
-        expect(console.error).toHaveBeenCalledWith("[ERROR] test");
+        expect(console.error).toHaveBeenCalledWith(expect.stringMatching(/ERROR.*test/));
     });
     
     it("should default to INFO level", () => {

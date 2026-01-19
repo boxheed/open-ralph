@@ -95,16 +95,70 @@ describe('SetupService', () => {
 
             expect(mockFs.outputFile).toHaveBeenCalledWith(
                 expect.stringContaining('ralph.config.js'),
-                expect.any(String)
+                expect.stringContaining('dirs:')
             );
         });
 
-        it('should not overwrite existing ralph.config.js', async () => {
+        it('should create ralph.config.js with provider and model if specified', async () => {
+            mockFs.pathExists.mockResolvedValue(false);
+
+            await SetupService.createConfigFile({ fs: mockFs, provider: 'gemini', model: 'gemini-1.5-pro' });
+
+            expect(mockFs.outputFile).toHaveBeenCalledWith(
+                expect.stringContaining('ralph.config.js'),
+                expect.stringContaining("provider: 'gemini'")
+            );
+            expect(mockFs.outputFile).toHaveBeenCalledWith(
+                expect.stringContaining('ralph.config.js'),
+                expect.stringContaining("model: 'gemini-1.5-pro'")
+            );
+        });
+
+        it('should update existing ralph.config.js with provider and model', async () => {
+            mockFs.pathExists.mockResolvedValue(true);
+            mockFs.readFile.mockResolvedValue("module.exports = {\n    dirs: {}\n};");
+
+            await SetupService.createConfigFile({ fs: mockFs, provider: 'aider', model: 'gpt-4' });
+
+            expect(mockFs.writeFile).toHaveBeenCalledWith(
+                expect.stringContaining('ralph.config.js'),
+                expect.stringContaining("provider: 'aider'")
+            );
+            expect(mockFs.writeFile).toHaveBeenCalledWith(
+                expect.stringContaining('ralph.config.js'),
+                expect.stringContaining("model: 'gpt-4'")
+            );
+        });
+
+        it('should update existing provider in ralph.config.js', async () => {
+            mockFs.pathExists.mockResolvedValue(true);
+            mockFs.readFile.mockResolvedValue("module.exports = {\n    provider: 'gemini',\n    dirs: {}\n};");
+
+            await SetupService.createConfigFile({ fs: mockFs, provider: 'aider' });
+
+            expect(mockFs.writeFile).toHaveBeenCalledWith(
+                expect.stringContaining('ralph.config.js'),
+                expect.stringContaining("provider: 'aider'")
+            );
+            const lastCallArgs = mockFs.writeFile.mock.calls[0];
+            expect(lastCallArgs[1]).not.toContain("provider: 'gemini'");
+        });
+
+        it('should not overwrite existing ralph.config.js if no provider specified', async () => {
             mockFs.pathExists.mockResolvedValue(true);
 
             await SetupService.createConfigFile({ fs: mockFs });
 
             expect(mockFs.outputFile).not.toHaveBeenCalled();
+            expect(mockFs.writeFile).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('getAvailableProviders', () => {
+        it('should return a list of provider names', async () => {
+            const providers = await SetupService.getAvailableProviders();
+            expect(providers).toContain('gemini');
+            expect(providers).toContain('aider');
         });
     });
 
@@ -160,8 +214,16 @@ describe('SetupService', () => {
 
                 expect(spyGit).toHaveBeenCalledWith({ fs: mockFs });
 
-                expect(spyConfig).toHaveBeenCalledWith({ fs: mockFs });
+                expect(spyConfig).toHaveBeenCalledWith({ fs: mockFs, provider: undefined, model: undefined });
 
+            });
+
+            it('should pass provider and model to createConfigFile in headless mode', async () => {
+                const spyConfig = vi.spyOn(SetupService, 'createConfigFile');
+
+                await SetupService.runSetup({ fs: mockFs, provider: 'gemini', model: 'pro' });
+
+                expect(spyConfig).toHaveBeenCalledWith({ fs: mockFs, provider: 'gemini', model: 'pro' });
             });
 
         });

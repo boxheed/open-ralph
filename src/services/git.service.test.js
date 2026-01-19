@@ -34,7 +34,7 @@ describe('GitService', () => {
             gitService.commit(message);
 
             expect(mockExecSync).toHaveBeenCalledWith('git add .');
-            expect(mockExecSync).toHaveBeenCalledWith(`git commit -m "${message}"`);
+            expect(mockExecSync).toHaveBeenCalledWith(`git commit --no-verify -m "${message}"`);
         });
 
         it('should execute git add with specific paths if provided', () => {
@@ -43,7 +43,7 @@ describe('GitService', () => {
             gitService.commit(message, paths);
 
             expect(mockExecSync).toHaveBeenCalledWith('git add "src/file1.js" "src/file2.js"');
-            expect(mockExecSync).toHaveBeenCalledWith(`git commit -m "${message}"`);
+            expect(mockExecSync).toHaveBeenCalledWith(`git commit --no-verify -m "${message}"`);
         });
     });
 

@@ -15,7 +15,7 @@ describe("ConfigService", () => {
             const config = loadConfig("/test", mockFs);
             expect(config.dirs).toEqual(DEFAULTS.dirs);
             expect(config.retries).toBe(DEFAULTS.retries);
-            expect(config.provider).toBe(DEFAULTS.provider);
+            expect(config.provider).toBeUndefined();
             expect(config.providers).toBeDefined();
          });
     });
@@ -54,7 +54,7 @@ describe("ConfigService", () => {
             const providerContent = `
                 module.exports = {
                     name: "custom-ai",
-                    command: "custom-ai {prompt}"
+                    build: () => ({ command: "custom-ai" })
                 };
             `;
             fs.writeFileSync(path.join(providersDir, "custom-ai.js"), providerContent);
@@ -62,7 +62,65 @@ describe("ConfigService", () => {
             const config = loadConfig(tmpDir);
 
             expect(config.providers["custom-ai"]).toBeDefined();
-            expect(config.providers["custom-ai"].command).toBe("custom-ai {prompt}");
+            expect(config.providers["custom-ai"].name).toBe("custom-ai");
+        });
+
+        it("should skip custom providers with syntax errors", () => {
+            const providersDir = path.join(tmpDir, ".ralph", "providers");
+            fs.ensureDirSync(providersDir);
+            
+            const providerContent = `
+                module.exports = {
+                    name: "bad-syntax",
+                    build: () => { // Missing closing brace
+            `;
+            fs.writeFileSync(path.join(providersDir, "bad-syntax.js"), providerContent);
+
+            const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const config = loadConfig(tmpDir);
+
+            expect(config.providers["bad-syntax"]).toBeUndefined();
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Failed to load custom provider bad-syntax.js"));
+            
+            consoleSpy.mockRestore();
+        });
+
+        it("should skip custom providers missing a 'name' property", () => {
+            const providersDir = path.join(tmpDir, ".ralph", "providers");
+            fs.ensureDirSync(providersDir);
+            
+            const providerContent = `
+                module.exports = {
+                    build: () => ({ command: "no-name" })
+                };
+            `;
+            fs.writeFileSync(path.join(providersDir, "no-name.js"), providerContent);
+
+            const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const config = loadConfig(tmpDir);
+
+            expect(config.providers["no-name"]).toBeUndefined();
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("is missing a 'name' property"));
+            
+            consoleSpy.mockRestore();
+        });
+
+        it("should use the 'name' property even if it differs from the filename", () => {
+            const providersDir = path.join(tmpDir, ".ralph", "providers");
+            fs.ensureDirSync(providersDir);
+            
+            const providerContent = `
+                module.exports = {
+                    name: "actual-name",
+                    build: () => ({ command: "mismatch" })
+                };
+            `;
+            fs.writeFileSync(path.join(providersDir, "mismatch.js"), providerContent);
+
+            const config = loadConfig(tmpDir);
+
+            expect(config.providers["actual-name"]).toBeDefined();
+            expect(config.providers["mismatch"]).toBeUndefined();
         });
 
         it("should not enforce 'model' property in config", () => {
@@ -123,9 +181,15 @@ describe("ConfigService", () => {
         });
 
         it("should use process.cwd() if source is not a string or valid object", () => {
-            // This hits the 'else' block
+            // Mock process.cwd() to a directory that doesn't have ralph.config.js
+            const originalCwd = process.cwd();
+            const mockCwd = tmpDir; // Use our empty tmpDir
+            vi.spyOn(process, 'cwd').mockReturnValue(mockCwd);
+
             const config = loadConfig(null);
             expect(config.dirs).toEqual(DEFAULTS.dirs);
+
+            process.cwd.mockRestore();
         });
 
         it("should merge provider overrides from ralph.config.js", () => {
