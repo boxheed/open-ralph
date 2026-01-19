@@ -181,9 +181,15 @@ describe("ConfigService", () => {
         });
 
         it("should use process.cwd() if source is not a string or valid object", () => {
-            // This hits the 'else' block
+            // Mock process.cwd() to a directory that doesn't have ralph.config.js
+            const originalCwd = process.cwd();
+            const mockCwd = tmpDir; // Use our empty tmpDir
+            vi.spyOn(process, 'cwd').mockReturnValue(mockCwd);
+
             const config = loadConfig(null);
             expect(config.dirs).toEqual(DEFAULTS.dirs);
+
+            process.cwd.mockRestore();
         });
 
         it("should merge provider overrides from ralph.config.js", () => {

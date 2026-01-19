@@ -43,10 +43,12 @@ async function runTask(filePath, fileName, dirs, {
         history.push(`### Attempt ${i}\n${aiOutput}`);
 
         if (options.interactive) {
-            execSync("read -p \"AI finished. Inspect code, then press [Enter]...\"");
+            logger.info("⏸  AI has proposed changes. Please inspect the code.");
+            execSync("read -p \"Press [Enter] to continue to validation...\" < /dev/tty");
         }
 
         try {
+            logger.info(`🔍 Running validation: ${data.validation_cmd}`);
             gitService.runValidation(data.validation_cmd, timeouts.validation);
             success = true;
             finalize(filePath, fileName, dirs.DONE, history, null, fs, logger);
@@ -57,13 +59,18 @@ async function runTask(filePath, fileName, dirs, {
                 if (Array.isArray(data.affected_files)) {
                     filesToCommit = filesToCommit.concat(data.affected_files);
                 } else if (typeof data.affected_files === 'string') {
-                    filesToCommit = filesToCommit.concat(data.affected_files.split(',').map(s => s.trim()));
+                    filesToCommit = filesToCommit.concat(data.affected_files.split(/[\s,]+/).map(s => s.trim()).filter(Boolean));
                 }
             }
             gitService.commit(`fix(${data.task_id}): automated task resolution`, filesToCommit);
+            logger.success(`Task ${fileName} completed successfully.`);
             break;
         } catch (err) {
-            if (i === retries) finalize(filePath, fileName, dirs.FAILED, history, err.message, fs, logger);
+            logger.warn(`Attempt ${i} failed validation: ${err.message}`);
+            if (i === retries) {
+                logger.error(`Task ${fileName} failed after ${retries} attempts.`);
+                finalize(filePath, fileName, dirs.FAILED, history, err.message, fs, logger);
+            }
         }
     }
 }

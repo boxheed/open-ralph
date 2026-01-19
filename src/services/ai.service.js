@@ -22,7 +22,6 @@ function callAI(prompt, { spawn = defaultSpawn, fs = defaultFs, provider = null,
         if (contextService && task) {
             try {
                 prompt = contextService.buildContext(task);
-                console.log(`DEBUG: Context built at ${prompt}`);
             } catch (err) {
                 return reject(new Error(`Failed to build context: ${err.message}`));
             }
@@ -50,9 +49,6 @@ function callAI(prompt, { spawn = defaultSpawn, fs = defaultFs, provider = null,
         
         // Use shell: false for security
         const useShell = false; 
-        const commandStringForDebug = `${executable} ${args.map(a => `"${a}"`).join(" ")}`;
-
-        console.log(`DEBUG: Executing command: ${commandStringForDebug}`);
         
         const child = spawn(executable, args, { shell: useShell });
         

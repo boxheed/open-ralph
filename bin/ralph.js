@@ -33,10 +33,41 @@ program
   });
 
 program
+  .command("list")
+  .description("List all tasks and their status")
+  .action(async () => {
+    const config = loadConfig();
+    const DIRS = { 
+        TODO: config.dirs.todo, 
+        DONE: config.dirs.done, 
+        FAILED: config.dirs.failed 
+    };
+
+    console.log("\n📋 Ralph Task Status:");
+    
+    const printTasks = (dir, label, color) => {
+        if (fs.existsSync(dir)) {
+            const files = fs.readdirSync(dir).filter(f => f.endsWith(".md")).sort();
+            if (files.length > 0) {
+                console.log(`\n${label}:`);
+                files.forEach(f => console.log(`  ${color}- ${f}\x1b[0m`));
+            }
+        }
+    };
+
+    printTasks(DIRS.TODO, "Pending (TODO)", "\x1b[33m");
+    printTasks(DIRS.DONE, "Completed (DONE)", "\x1b[32m");
+    printTasks(DIRS.FAILED, "Failed (FAILED)", "\x1b[31m");
+    console.log("");
+  });
+
+program
   .command("run", { isDefault: true })
   .description("Run the Ralph loop")
   .option("-i, --interactive", "Enable interactive mode")
   .option("-c, --config <path>", "Path to config file")
+  .option("-q, --quiet", "Minimize output")
+  .option("-d, --debug", "Show debug logs")
   .action(async (options) => {
     let config;
     try {
@@ -45,21 +76,24 @@ program
         config = { dirs: { todo: './tasks/todo', done: './tasks/done', failed: './tasks/failed' } };
     }
 
+    const logLevel = options.debug ? "DEBUG" : (options.quiet ? "WARN" : "INFO");
+    const logger = new LoggerService(logLevel);
+
     const isCI = process.env.CI || process.env.HEADLESS || !process.stdout.isTTY;
 
     // Smart Entry Logic
     if (!config.provider) {
         if (!isCI) {
-            console.log("Welcome to Ralph! It looks like you haven't configured an AI provider yet.");
+            logger.info("Welcome to Ralph! It looks like you haven't configured an AI provider yet.");
             await SetupService.runSetup({ interactive: true });
             // Reload config after setup
             config = options.config ? loadConfig({ configPath: options.config }) : loadConfig();
             if (!config.provider) {
-                console.error("❌ Setup was not completed. Please configure a provider to continue.");
+                logger.error("Setup was not completed. Please configure a provider to continue.");
                 process.exit(1);
             }
         } else {
-            console.error("❌ Error: No AI provider configured. In CI/Headless environments, please provide a config file or use environment variables.");
+            logger.error("No AI provider configured. In CI/Headless environments, please provide a config file or use environment variables.");
             process.exit(1);
         }
     }
@@ -68,13 +102,13 @@ program
         if (!isCI) {
             await SetupService.runSetup();
         } else {
-            console.error("❌ Ralph environment not found. Run `ralph setup` to initialize this project.");
+            logger.error("Ralph environment not found. Run `ralph setup` to initialize this project.");
             process.exit(1);
         }
     }
 
     if (!GitService.isRepoClean()) {
-        console.error("❌ Git is dirty. Commit your work first.");
+        logger.error("Git is dirty. Commit your work first.");
         process.exit(1);
     }
 
@@ -84,20 +118,27 @@ program
         FAILED: config.dirs.failed 
     };
 
+    if (!fs.existsSync(DIRS.TODO)) {
+        logger.error(`TODO directory not found at ${DIRS.TODO}`);
+        process.exit(1);
+    }
+
     const files = fs.readdirSync(DIRS.TODO).filter(f => f.endsWith(".md")).sort();
     
-    const logger = new LoggerService("INFO");
-
     const services = {
         aiService: { callAI },
         gitService: GitService
     };
 
     if (files.length === 0) {
-        console.log("No tasks found in TODO directory.");
+        logger.info("No tasks found in TODO directory.");
+        return;
     }
 
+    logger.info(`Found ${files.length} tasks. Starting loop...`);
+
     for (const file of files) {
+        logger.info(`▶️ Running task: ${file}`);
         await runTask(`${DIRS.TODO}/${file}`, file, DIRS, {
             interactive: options.interactive || false,
             config,
