@@ -15,7 +15,7 @@ describe("ConfigService", () => {
             const config = loadConfig("/test", mockFs);
             expect(config.dirs).toEqual(DEFAULTS.dirs);
             expect(config.retries).toBe(DEFAULTS.retries);
-            expect(config.provider).toBe(DEFAULTS.provider);
+            expect(config.provider).toBeUndefined();
             expect(config.providers).toBeDefined();
          });
     });

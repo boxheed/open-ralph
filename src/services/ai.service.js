@@ -9,8 +9,15 @@ const defaultFs = require("fs-extra");
  * Providers must export a `build(prompt, context)` function which returns
  * structured command arguments, allowing for safe `spawn` execution.
  */
-function callAI(prompt, { spawn = defaultSpawn, fs = defaultFs, provider = "gemini", config = {}, files = "", model = null, timeout = 0, contextService = null, task = null } = {}) {
+function callAI(prompt, { spawn = defaultSpawn, fs = defaultFs, provider = null, config = {}, files = "", model = null, timeout = 0, contextService = null, task = null } = {}) {
     return new Promise((resolve, reject) => {
+        // Resolve provider: explicitly passed > config default
+        const activeProvider = provider || config.provider;
+
+        if (!activeProvider) {
+            return reject(new Error("No AI provider configured. Please check your configuration."));
+        }
+
         // If ContextService is provided, build the context file and use its path as the prompt
         if (contextService && task) {
             try {
@@ -22,17 +29,17 @@ function callAI(prompt, { spawn = defaultSpawn, fs = defaultFs, provider = "gemi
         }
 
         const providers = config.providers || {};
-        const providerConfig = providers[provider];
+        const providerConfig = providers[activeProvider];
         
         if (!providerConfig) {
-            return reject(new Error(`Unknown provider: ${provider}`));
+            return reject(new Error(`Unknown provider: ${activeProvider}`));
         }
 
         // Resolve Model Priority: Task > Provider Default > Global Config
         const resolvedModel = model || providerConfig.defaultModel || config.model || null;
 
         if (typeof providerConfig.build !== "function") {
-             return reject(new Error(`Provider ${provider} must export a 'build' function.`));
+             return reject(new Error(`Provider ${activeProvider} must export a 'build' function.`));
         }
 
         // --- Strategy Pattern (Strict) ---
@@ -74,7 +81,7 @@ function callAI(prompt, { spawn = defaultSpawn, fs = defaultFs, provider = "gemi
         child.on("close", (code) => {
             if (timer) clearTimeout(timer);
             if (code !== 0) {
-                reject(new Error(`${provider} failed with exit code ${code}`));
+                reject(new Error(`${activeProvider} failed with exit code ${code}`));
             } else {
                 resolve(output || "No output from AI.");
             }
@@ -82,7 +89,7 @@ function callAI(prompt, { spawn = defaultSpawn, fs = defaultFs, provider = "gemi
 
         child.on("error", (err) => {
             if (timer) clearTimeout(timer);
-            reject(new Error(`${provider} failed: ${err.message}`));
+            reject(new Error(`${activeProvider} failed: ${err.message}`));
         });
     });
 }

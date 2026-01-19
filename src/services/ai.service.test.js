@@ -100,8 +100,14 @@ describe('ai.service', () => {
     });
 
     it('should reject if provider unknown', async () => {
-        await expect(aiService.callAI('p', { provider: 'unknown' }))
+        const config = { providers: {} };
+        await expect(aiService.callAI('p', { provider: 'unknown', config }))
             .rejects.toThrow('Unknown provider');
+    });
+
+    it('should reject if no provider configured', async () => {
+        await expect(aiService.callAI('p', { provider: null, config: {} }))
+            .rejects.toThrow('No AI provider configured');
     });
 
     // --- Context Service Integration ---

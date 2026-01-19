@@ -36,16 +36,27 @@ program
         process.exit(1);
     }
 
-    if (!GitService.isRepoClean()) {
-        console.error("❌ Git is dirty. Commit your work first.");
-        process.exit(1);
-    }
-
     let config;
     if (options.config) {
         config = loadConfig({ configPath: options.config });
     } else {
         config = loadConfig();
+    }
+
+    // Provider Validation & CI Safety
+    if (!config.provider) {
+        const isCI = process.env.CI || process.env.HEADLESS || !process.stdout.isTTY;
+        if (isCI) {
+            console.error("❌ Error: No AI provider configured. In CI/Headless environments, please provide a config file or use environment variables.");
+            process.exit(1);
+        } else {
+            console.warn("⚠️  No AI provider configured. Run 'ralph setup' to initialize.");
+        }
+    }
+
+    if (!GitService.isRepoClean()) {
+        console.error("❌ Git is dirty. Commit your work first.");
+        process.exit(1);
     }
 
     const DIRS = { 

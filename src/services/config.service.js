@@ -13,8 +13,7 @@ const DEFAULTS = {
     timeouts: {
         ai: 1200000, // 20 minutes
         validation: 900000 // 15 minutes
-    },
-    provider: "gemini"
+    }
 };
 
 function loadProviders(sourceDir, fsImpl = defaultFs) {
