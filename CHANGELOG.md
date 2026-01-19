@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.3](https://github.com/boxheed/open-ralph/compare/v0.1.2...v0.1.3) (2026-01-19)
+
+
+### Bug Fixes
+
+* correct gemini provider to use stdin and enhance AIService with piping support ([ca3729f](https://github.com/boxheed/open-ralph/commit/ca3729f5658380d7e2ed70d6eddc4eccb1fed2fb))
+* update forge provider to use stdin for prompts ([7a71b1c](https://github.com/boxheed/open-ralph/commit/7a71b1c91e77bf8ebe61e4f553a86f8e8c44e0af))
+
 ### 0.1.2 (2026-01-19)
 
 
