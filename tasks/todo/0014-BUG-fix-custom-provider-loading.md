@@ -5,7 +5,7 @@ affected_files:
   - src/services/config.service.test.js
   - src/services/ai.service.test.js
 validation_cmd: npm test
-provider: qwen
+provider: gemini
 ---
 
 # Fix Custom Provider Loading
