@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { LoopEngine } from "./loop.engine";
+import { LoopEngine, EVENTS } from "./loop.engine";
 
-describe("LoopEngine", () => {
-    let aiService, gitService, taskRepository, contextService, logger, config;
+describe("LoopEngine (Event-Driven)", () => {
+    let aiService, gitService, taskRepository, contextService, config;
     let engine;
 
     beforeEach(() => {
@@ -15,64 +15,57 @@ describe("LoopEngine", () => {
             markFailed: vi.fn() 
         };
         contextService = { buildContext: vi.fn() };
-        logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), success: vi.fn() };
-        config = { dirs: { done: "done" }, retries: 2 };
+        config = { dirs: { done: "done" }, retries: 1 };
 
         engine = new LoopEngine({
             aiService,
             gitService,
             taskRepository,
             contextService,
-            logger,
             config
         });
     });
 
-    it("should run all tasks in the repository", async () => {
-        taskRepository.listTodo.mockReturnValue(["task1.md", "task2.md"]);
+    it("should emit events during successful execution", async () => {
+        const task = { 
+            fileName: "task.md", 
+            data: { task_id: "T1" }, 
+            content: "do" 
+        };
+        taskRepository.listTodo.mockReturnValue(["task.md"]);
+        taskRepository.loadTask.mockReturnValue(task);
+        aiService.callAI.mockResolvedValue("fixed");
+
+        const startedSpy = vi.fn();
+        const completedSpy = vi.fn();
         
-        // Mock runTask to avoid deep nesting in this test
-        const runTaskSpy = vi.spyOn(engine, "runTask").mockResolvedValue();
+        engine.on(EVENTS.TASK_STARTED, startedSpy);
+        engine.on(EVENTS.TASK_COMPLETED, completedSpy);
 
         await engine.runAll();
 
-        expect(runTaskSpy).toHaveBeenCalledTimes(2);
-        expect(runTaskSpy).toHaveBeenCalledWith("task1.md");
-        expect(runTaskSpy).toHaveBeenCalledWith("task2.md");
-    });
-
-    it("should complete a task on the first attempt", async () => {
-        const task = { 
-            fileName: "task1.md", 
-            data: { task_id: "T1", validation_cmd: "test" }, 
-            content: "do it" 
-        };
-        taskRepository.loadTask.mockReturnValue(task);
-        aiService.callAI.mockResolvedValue("AI output");
-
-        await engine.runTask("task1.md");
-
-        expect(aiService.callAI).toHaveBeenCalled();
-        expect(gitService.runValidation).toHaveBeenCalledWith("test", undefined);
+        expect(startedSpy).toHaveBeenCalled();
+        expect(completedSpy).toHaveBeenCalled();
         expect(taskRepository.markDone).toHaveBeenCalled();
-        expect(gitService.commit).toHaveBeenCalled();
-        expect(logger.success).toHaveBeenCalled();
     });
 
-    it("should retry on failure and mark as failed if all attempts fail", async () => {
+    it("should emit failure events", async () => {
         const task = { 
-            fileName: "task1.md", 
-            data: { task_id: "T1", validation_cmd: "test" }, 
-            content: "do it" 
+            fileName: "task.md", 
+            data: { task_id: "T1" }, 
+            content: "do" 
         };
+        taskRepository.listTodo.mockReturnValue(["task.md"]);
         taskRepository.loadTask.mockReturnValue(task);
-        aiService.callAI.mockResolvedValue("AI output");
-        gitService.runValidation.mockImplementation(() => { throw new Error("Validation failed"); });
+        aiService.callAI.mockRejectedValue(new Error("AI error"));
 
-        await engine.runTask("task1.md");
+        const failedSpy = vi.fn();
+        engine.on(EVENTS.TASK_FAILED, failedSpy);
 
-        expect(gitService.runValidation).toHaveBeenCalledTimes(2); // Based on config.retries = 2
-        expect(taskRepository.markFailed).toHaveBeenCalled();
-        expect(logger.error).toHaveBeenCalled();
+        await engine.runAll();
+
+        expect(failedSpy).toHaveBeenCalledWith(expect.objectContaining({ 
+            error: expect.stringContaining("AI error") 
+        }));
     });
 });

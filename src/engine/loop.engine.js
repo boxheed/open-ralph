@@ -1,126 +1,137 @@
+const EventEmitter = require("events");
 const path = require("path");
 
 /**
- * LoopEngine coordinates the main Ralph loop.
- * It is agnostic of the persistence layer and AI implementation details.
+ * Standard Event Names for the LoopEngine
  */
-class LoopEngine {
-    constructor({ 
-        aiService, 
-        gitService, 
-        taskRepository, 
-        contextService, 
-        logger, 
+const EVENTS = {
+    TASK_STARTED: "task:started",
+    TASK_COMPLETED: "task:completed",
+    TASK_FAILED: "task:failed",
+    ATTEMPT_STARTED: "attempt:started",
+    ATTEMPT_SUCCEEDED: "attempt:succeeded",
+    ATTEMPT_FAILED: "attempt:failed",
+    AI_PROPOSAL_RECEIVED: "ai:proposal_received"
+};
+
+/**
+ * LoopEngine coordinates the main Ralph loop.
+ */
+class LoopEngine extends EventEmitter {
+    constructor({
+        aiService,
+        gitService,
+        taskRepository,
+        contextService,
         config = {} 
     }) {
+        super();
         this.aiService = aiService;
         this.gitService = gitService;
         this.taskRepository = taskRepository;
         this.contextService = contextService;
-        this.logger = logger;
         this.config = config;
         this.retries = config.retries || 3;
     }
 
-    /**
-     * Executes all pending tasks in the repository.
-     */
     async runAll() {
         const files = this.taskRepository.listTodo();
         
         if (files.length === 0) {
-            this.logger.info("No tasks found in TODO directory.");
+            this.emit(EVENTS.TASK_STARTED, { count: 0 });
             return;
         }
 
-        this.logger.info(`Found ${files.length} tasks. Starting loop...`);
-
         for (const file of files) {
-            this.logger.info(`▶️ Running task: ${file}`);
             await this.runTask(file);
         }
     }
 
-    /**
-     * Runs a single task through the Propose -> Execute -> Verify cycle.
-     */
-    async runTask(fileName, options = {}) {
+    async runTask(fileName) {
         const task = this.taskRepository.loadTask(fileName);
-        const { data, content } = task;
-        
-        let history = [];
-        let success = false;
-        
-        const provider = data.provider || this.config.provider;
-        const model = data.model || this.config.model;
-        const timeouts = this.config.timeouts || {};
+        this.emit(EVENTS.TASK_STARTED, { task });
+
+        let state = {
+            history: [],
+            success: false,
+            task
+        };
 
         for (let i = 1; i <= this.retries; i++) {
-            this.logger.info(`   Attempt ${i}/${this.retries}...`);
-            
-            const prompt = `ROLE: Senior Engineer\nTASK: ${content}\nFILES: ${data.affected_files}`;
-            
-            try {
-                const aiOutput = await this.aiService.callAI(prompt, {
-                    provider,
-                    files: data.affected_files,
-                    model,
-                    timeout: timeouts.ai,
-                    contextService: this.contextService,
-                    task: { data, content, history }
-                });
-                
-                history.push(`### Attempt ${i}\n${aiOutput}`);
+            state = await this._executeAttempt(state, i);
+            if (state.success) break;
+        }
 
-                if (options.interactive || this.config.interactive) {
-                    this.logger.info("⏸  AI has proposed changes. Please inspect the code.");
-                    // In a real environment, we'd need a way to pause and wait for user input
-                    // For now, keeping the shell command as a placeholder if needed, 
-                    // but ideally this should be handled by the shell/CLI layer.
-                }
-
-                this.logger.info(`🔍 Running validation: ${data.validation_cmd}`);
-                this.gitService.runValidation(data.validation_cmd, timeouts.validation);
-                
-                success = true;
-                this.taskRepository.markDone(task, history);
-                
-                this._commitTask(task);
-                this.logger.success(`Task ${fileName} completed successfully.`);
-                break;
-            } catch (err) {
-                this.logger.warn(`Attempt ${i} failed: ${err.message}`);
-                history.push(`### Attempt ${i} Failed\nError: ${err.message}`);
-                
-                if (i === this.retries) {
-                    this.logger.error(`Task ${fileName} failed after ${this.retries} attempts.`);
-                    this.taskRepository.markFailed(task, history, err.message);
-                }
-            }
+        if (state.success) {
+            this.taskRepository.markDone(task, state.history);
+            this._commitTask(task);
+            this.emit(EVENTS.TASK_COMPLETED, { task });
+        } else {
+            const lastError = state.history[state.history.length - 1];
+            this.taskRepository.markFailed(task, state.history, lastError);
+            this.emit(EVENTS.TASK_FAILED, { task, error: lastError });
         }
     }
 
     /**
-     * Commits the completed task and its affected files.
+     * Internal pipeline for a single attempt.
      * @private
      */
-    _commitTask(task) {
-        const { data, fileName } = task;
-        const donePath = path.join(this.config.dirs.done, fileName);
-        let filesToCommit = [donePath];
+    async _executeAttempt(state, attemptNumber) {
+        const { task, history } = state;
+        this.emit(EVENTS.ATTEMPT_STARTED, { task, attemptNumber });
 
-        if (data.affected_files) {
-            if (Array.isArray(data.affected_files)) {
-                filesToCommit = filesToCommit.concat(data.affected_files);
-            } else if (typeof data.affected_files === 'string') {
-                filesToCommit = filesToCommit.concat(
-                    data.affected_files.split(/["\s,"]+/).map(s => s.trim()).filter(Boolean)
-                );
-            }
+        try {
+            // 1. Propose (AI)
+            const aiOutput = await this._generateProposal(task, history);
+            this.emit(EVENTS.AI_PROPOSAL_RECEIVED, { task, attemptNumber, output: aiOutput });
+
+            // 2. Verify (Validation)
+            this._verifyChanges(task.data.validation_cmd);
+            
+            this.emit(EVENTS.ATTEMPT_SUCCEEDED, { task, attemptNumber });
+            return { 
+                ...state, 
+                success: true, 
+                history: [...history, `### Attempt ${attemptNumber}\n${aiOutput}`] 
+            };
+        } catch (err) {
+            this.emit(EVENTS.ATTEMPT_FAILED, { task, attemptNumber, error: err.message });
+            return { 
+                ...state, 
+                success: false, 
+                history: [...history, `### Attempt ${attemptNumber} Failed\nError: ${err.message}`] 
+            };
         }
+    }
 
-        this.gitService.commit(`fix(${data.task_id}): automated task resolution`, filesToCommit);
+    async _generateProposal(task, history) {
+        const prompt = `ROLE: Senior Engineer\nTASK: ${task.content}\nFILES: ${task.data.affected_files}`;
+        return await this.aiService.callAI(prompt, {
+            provider: task.data.provider || this.config.provider,
+            files: task.data.affected_files,
+            model: task.data.model || this.config.model,
+            timeout: (this.config.timeouts || {}).ai,
+            contextService: this.contextService,
+            task: { ...task, history }
+        });
+    }
+
+    _verifyChanges(validationCmd) {
+        this.gitService.runValidation(validationCmd, (this.config.timeouts || {}).validation);
+    }
+
+    _commitTask(task) {
+        const donePath = path.join(this.config.dirs.done, task.fileName);
+        let filesToCommit = [donePath];
+        if (task.data.affected_files) {
+            const affected = Array.isArray(task.data.affected_files) 
+                ? task.data.affected_files 
+                : task.data.affected_files.split(/["\s,\"]+/).filter(Boolean);
+            filesToCommit = filesToCommit.concat(affected);
+        }
+        this.gitService.commit(`fix(${task.data.task_id}): automated task resolution`, filesToCommit);
     }
 }
 
-module.exports = { LoopEngine };
+module.exports = { LoopEngine, EVENTS };

@@ -124,9 +124,11 @@ program
         gitService,
         taskRepository,
         contextService,
-        logger,
         config
     });
+
+    const { EngineObserver } = require("../src/services/engine.observer");
+    new EngineObserver(engine, logger);
 
     await engine.runAll();
   });
