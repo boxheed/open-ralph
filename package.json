@@ -1,6 +1,6 @@
 {
   "name": "ralph-loop-agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An autonomous AI coding agent following the Ralph Wiggum pattern.",
   "main": "ralph.js",
   "bin": {
