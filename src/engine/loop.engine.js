@@ -34,9 +34,17 @@ class LoopEngine extends EventEmitter {
         this.retries = config.retries || 3;
     }
 
-    async runAll() {
-        const files = this.taskRepository.listTodo();
+    async runAll(targetTask = null) {
+        let files = this.taskRepository.listTodo();
         
+        if (targetTask) {
+            const fileName = targetTask.endsWith(".md") ? targetTask : `${targetTask}.md`;
+            if (!files.includes(fileName)) {
+                throw new Error(`Task file not found in todo directory: ${fileName}`);
+            }
+            files = [fileName];
+        }
+
         if (files.length === 0) {
             this.emit(EVENTS.TASK_STARTED, { count: 0 });
             return;

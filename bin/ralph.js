@@ -68,6 +68,7 @@ program
   .description("Run the Ralph loop")
   .option("-i, --interactive", "Enable interactive mode")
   .option("-c, --config <path>", "Path to config file")
+  .option("-t, --task <filename>", "Run a specific task")
   .option("-q, --quiet", "Minimize output")
   .option("-d, --debug", "Show debug logs")
   .action(async (options) => {
@@ -130,7 +131,12 @@ program
     const { EngineObserver } = require("../src/services/engine.observer");
     new EngineObserver(engine, logger);
 
-    await engine.runAll();
+    try {
+        await engine.runAll(options.task);
+    } catch (err) {
+        logger.error(err.message);
+        process.exit(1);
+    }
   });
 
 program.parse();
