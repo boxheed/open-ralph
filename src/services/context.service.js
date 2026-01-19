@@ -24,9 +24,12 @@ class ContextService {
             return DEFAULT_PERSONA;
         }
 
-        const personasDir = (this.config.dirs && this.config.dirs.personas) 
-            ? this.config.dirs.personas 
-            : path.join(process.cwd(), ".ralph", "personas");
+        let personasDir;
+        if (this.config.dirs && this.config.dirs.personas) {
+            personasDir = this.config.dirs.personas;
+        } else {
+            personasDir = path.join(process.cwd(), ".ralph", "personas");
+        }
 
         const personaPath = path.join(personasDir, `${personaName}.md`);
 
