@@ -9,7 +9,7 @@
   "scripts": {
     "setup": "node bin/ralph.js setup",
     "test": "vitest run --coverage.enabled --coverage.provider=v8 --coverage.include=src/**/*.js",
-    "release": "standard-version"
+    "release": "standard-version --commit-all"
   },
   "dependencies": {
     "@inquirer/prompts": "^8.2.0",
