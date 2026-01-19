@@ -23,28 +23,22 @@ describe('Providers Service', () => {
         };
     });
 
-    describe('Standard Providers (File Content Injection)', () => {
-        const standardProviders = [
-            {
-                module: githubCopilot,
-                cmd: 'copilot',
-                argsPrefix: ['--allow-all-tools', '--prompt']
-            },
-            {
-                module: forge,
-                cmd: 'forge',
-                argsPrefix: ['--prompt']
-            },
-            { module: cline, cmd: 'cline', argsPrefix: [] },
-            { module: nanocoder, cmd: 'nanocoder', argsPrefix: [] },
-            { module: opencode, cmd: 'opencode', argsPrefix: [] },
-            {
-                module: qwenCode,
-                cmd: 'qwen',
-                argsPrefix: ['--yolo']
-            },
-        ];
-
+        describe('Standard Providers (File Content Injection)', () => {
+            const standardProviders = [
+                { 
+                    module: githubCopilot, 
+                    cmd: 'copilot', 
+                    argsPrefix: ['--allow-all-tools', '--prompt'] 
+                },
+                { module: cline, cmd: 'cline', argsPrefix: [] },
+                { module: nanocoder, cmd: 'nanocoder', argsPrefix: [] },
+                { module: opencode, cmd: 'opencode', argsPrefix: [] },
+                { 
+                    module: qwenCode, 
+                    cmd: 'qwen', 
+                    argsPrefix: ['--yolo'] 
+                },
+            ];
         standardProviders.forEach(({ module, cmd, argsPrefix }) => {
             describe(module.name, () => {
                 it('should use raw text if prompt is not a file', () => {
@@ -79,6 +73,27 @@ describe('Providers Service', () => {
                     expect(result.args).toEqual([...argsPrefix, filePath]);
                 });
             });
+        });
+    });
+
+    describe('Forge Provider', () => {
+        it('should use stdin for prompt', () => {
+            mockFs.existsSync.mockReturnValue(false);
+            const result = forge.build("hello", { fs: mockFs });
+            expect(result.command).toBe("forge");
+            expect(result.args).toEqual([]);
+            expect(result.stdin).toBe("hello");
+        });
+
+        it('should read file content into stdin if prompt is a file', () => {
+            const filePath = "context.md";
+            const content = "forge context";
+            mockFs.existsSync.mockReturnValue(true);
+            mockFs.readFileSync.mockReturnValue(content);
+
+            const result = forge.build(filePath, { fs: mockFs });
+            expect(result.stdin).toBe(content);
+            expect(result.args).toEqual([]);
         });
     });
 

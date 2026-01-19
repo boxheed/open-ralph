@@ -6,17 +6,18 @@ module.exports = {
      * Builds the command arguments for Forge.
      */
     build: (prompt, { fs = defaultFs } = {}) => {
-        let message = prompt;
+        let stdin = prompt;
         if (fs.existsSync(prompt)) {
             try {
-                message = fs.readFileSync(prompt, "utf8");
+                stdin = fs.readFileSync(prompt, "utf8");
             } catch (e) {
                 // Fallback
             }
         }
         return {
             command: "forge",
-            args: ["--prompt", message]
+            args: [], // Use stdin instead of --prompt
+            stdin
         };
     }
 };
