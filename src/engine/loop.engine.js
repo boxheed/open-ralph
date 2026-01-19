@@ -21,7 +21,7 @@ async function runTask(filePath, fileName, dirs, {
     
     const retries = config.retries || 3;
     
-    const provider = data.provider || config.provider || "gemini";
+    const provider = data.provider || config.provider;
     const model = data.model || config.model;
     const timeouts = config.timeouts || {};
 

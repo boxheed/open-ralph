@@ -25,12 +25,20 @@ describe('Providers Service', () => {
 
     describe('Standard Providers (File Context Support)', () => {
         const standardProviders = [
-            { module: githubCopilot, cmd: 'gh', argsPrefix: ['copilot', 'suggest'] },
+            { 
+                module: githubCopilot, 
+                cmd: 'copilot', 
+                argsPrefix: ['--allow-all-tools', '--prompt'] 
+            },
             { module: cline, cmd: 'cline', argsPrefix: [] },
             { module: forge, cmd: 'forge', argsPrefix: [] },
             { module: nanocoder, cmd: 'nanocoder', argsPrefix: [] },
             { module: opencode, cmd: 'opencode', argsPrefix: [] },
-            { module: qwenCode, cmd: 'qwen-code', argsPrefix: [] },
+            { 
+                module: qwenCode, 
+                cmd: 'qwen', 
+                argsPrefix: ['--yolo'] 
+            },
         ];
 
         standardProviders.forEach(({ module, cmd, argsPrefix }) => {

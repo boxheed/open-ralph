@@ -21,8 +21,15 @@ program
 program
   .command("setup")
   .description("Initialize the Ralph environment")
-  .action(async () => {
-    await SetupService.runSetup();
+  .option("-p, --provider <name>", "AI provider to use")
+  .option("-m, --model <name>", "AI model to use")
+  .action(async (options) => {
+    const isInteractive = !options.provider && process.stdout.isTTY && !process.env.CI;
+    await SetupService.runSetup({ 
+        provider: options.provider, 
+        model: options.model, 
+        interactive: isInteractive 
+    });
   });
 
 program
@@ -31,26 +38,38 @@ program
   .option("-i, --interactive", "Enable interactive mode")
   .option("-c, --config <path>", "Path to config file")
   .action(async (options) => {
-    if (!(await SetupService.isInitialized())) {
-        console.error("❌ Ralph environment not found. Run `ralph setup` to initialize this project.");
-        process.exit(1);
-    }
-
     let config;
-    if (options.config) {
-        config = loadConfig({ configPath: options.config });
-    } else {
-        config = loadConfig();
+    try {
+        config = options.config ? loadConfig({ configPath: options.config }) : loadConfig();
+    } catch (e) {
+        config = { dirs: { todo: './tasks/todo', done: './tasks/done', failed: './tasks/failed' } };
     }
 
-    // Provider Validation & CI Safety
+    const isCI = process.env.CI || process.env.HEADLESS || !process.stdout.isTTY;
+
+    // Smart Entry Logic
     if (!config.provider) {
-        const isCI = process.env.CI || process.env.HEADLESS || !process.stdout.isTTY;
-        if (isCI) {
+        if (!isCI) {
+            console.log("Welcome to Ralph! It looks like you haven't configured an AI provider yet.");
+            await SetupService.runSetup({ interactive: true });
+            // Reload config after setup
+            config = options.config ? loadConfig({ configPath: options.config }) : loadConfig();
+            if (!config.provider) {
+                console.error("❌ Setup was not completed. Please configure a provider to continue.");
+                process.exit(1);
+            }
+        } else {
             console.error("❌ Error: No AI provider configured. In CI/Headless environments, please provide a config file or use environment variables.");
             process.exit(1);
+        }
+    }
+
+    if (!(await SetupService.isInitialized())) {
+        if (!isCI) {
+            await SetupService.runSetup();
         } else {
-            console.warn("⚠️  No AI provider configured. Run 'ralph setup' to initialize.");
+            console.error("❌ Ralph environment not found. Run `ralph setup` to initialize this project.");
+            process.exit(1);
         }
     }
 

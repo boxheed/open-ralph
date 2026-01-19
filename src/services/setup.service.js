@@ -63,25 +63,90 @@ class SetupService {
         }
     }
 
-    static async createConfigFile({ fs = defaultFs } = {}) {
+    static async createConfigFile({ fs = defaultFs, provider, model } = {}) {
         const configPath = path.resolve(process.cwd(), 'ralph.config.js');
         if (!(await fs.pathExists(configPath))) {
-            await fs.outputFile(configPath, DEFAULT_CONFIG);
+            let configContent = DEFAULT_CONFIG;
+            if (provider) {
+                configContent = `module.exports = {
+    provider: '${provider}',
+    ${model ? `model: '${model}',` : ''}
+    dirs: {
+        todo: 'tasks/todo',
+        done: 'tasks/done',
+        failed: 'tasks/failed'
+    }
+};
+`;
+            }
+            await fs.outputFile(configPath, configContent);
+        } else if (provider) {
+            let content = await fs.readFile(configPath, 'utf8');
+            
+            // Basic idempotency: update or add provider/model
+            if (content.includes('provider:')) {
+                content = content.replace(/provider:\s*['"].*['"]/, `provider: '${provider}'`);
+            } else {
+                content = content.replace(/module\.exports\s*=\s*\{/, `module.exports = {\n    provider: '${provider}',`);
+            }
+
+            if (model) {
+                if (content.includes('model:')) {
+                    content = content.replace(/model:\s*['"].*['"]/, `model: '${model}'`);
+                } else {
+                    content = content.replace(/module\.exports\s*=\s*\{/, `module.exports = {\n    model: '${model}',`);
+                }
+            }
+            await fs.writeFile(configPath, content);
         }
     }
 
     static async isInitialized({ fs = defaultFs } = {}) {
-        // We consider it initialized if the tasks/todo directory exists
-        // This is a minimal check as per requirements
         return fs.pathExists(path.resolve(process.cwd(), 'tasks/todo'));
     }
 
-    static async runSetup({ fs = defaultFs } = {}) {
+    static async getAvailableProviders() {
+        // We load config to get available providers
+        const { loadConfig } = require('./config.service');
+        const config = loadConfig();
+        return Object.keys(config.providers);
+    }
+
+    static async runSetup({ fs = defaultFs, provider, model, interactive = false } = {}) {
+        if (interactive) {
+            try {
+                const { select, input } = await import('@inquirer/prompts');
+                
+                console.log('Welcome to Ralph! Let\'s get you set up.');
+                
+                const providers = await this.getAvailableProviders();
+                
+                const selectedProvider = await select({
+                    message: 'Select an AI provider:',
+                    choices: providers.map(p => ({ name: p, value: p }))
+                });
+
+                const selectedModel = await input({
+                    message: 'Enter the model name (optional):',
+                    default: ''
+                });
+
+                provider = selectedProvider;
+                model = selectedModel || undefined;
+            } catch (error) {
+                if (error.name === 'ExitPromptError') {
+                    console.log('\nSetup cancelled. You can run "ralph setup" anytime to configure your provider.');
+                    return;
+                }
+                throw error;
+            }
+        }
+
         console.log('Initializing Ralph environment...');
         await this.initializeDirs({ fs });
         await this.seedPersonas({ fs });
         await this.updateGitignore({ fs });
-        await this.createConfigFile({ fs });
+        await this.createConfigFile({ fs, provider, model });
         console.log('Ralph environment setup complete.');
     }
 }

@@ -74,7 +74,7 @@ describe("loop.engine", () => {
 
         expect(mockAiService.callAI).toHaveBeenCalledWith(
             expect.stringContaining("Task Content"),
-            expect.objectContaining({ provider: "gemini", files: "f1" })
+            expect.objectContaining({ provider: undefined, files: "f1" })
         );
         
         expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining("Attempt 1/3"));
