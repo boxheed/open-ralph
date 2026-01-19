@@ -1,4 +1,4 @@
-# 🤡 Ralph Agent (v0.1.0)
+# 🤡 Open Ralph (v0.1.0)
 > "I'm helping!" — An autonomous, reliability-first AI coding loop.
 
 Ralph Agent is a platform-agnostic implementation of the **Ralph Wiggum Pattern**. Unlike traditional AI coding assistants that simply generate code, Ralph operates in a **Propose → Execute → Verify → Fix** loop. It treats the AI as a junior engineer that is not allowed to commit code until the validation tests pass.
@@ -27,7 +27,7 @@ Ralph Agent is a platform-agnostic implementation of the **Ralph Wiggum Pattern*
 Install the agent directly from the repository to use the ralph command anywhere:
 
 ```bash
-npm install -g https://github.com/boxheed/ralph-agent
+npm install -g https://github.com/boxheed/open-ralph
 ```
 
 ### Local Development Setup
