@@ -20,7 +20,8 @@ describe("loop.engine", () => {
         mockFs = {
             readFileSync: vi.fn().mockReturnValue(fileContent),
             writeFileSync: vi.fn(),
-            moveSync: vi.fn()
+            moveSync: vi.fn(),
+            existsSync: vi.fn().mockReturnValue(true)
         };
         mockExecSync = vi.fn();
         mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() };
@@ -28,6 +29,33 @@ describe("loop.engine", () => {
             data: { task_id: "T1", validation_cmd: "test", affected_files: "f1" },
             content: "Task Content"
         });
+    });
+
+    it("should gracefully handle if task file was moved by AI", async () => {
+        mockAiService.callAI.mockResolvedValue("AI Code Fix");
+        
+        // Simulate file missing at old path but present at new path
+        mockFs.existsSync.mockImplementation((path) => {
+            if (path === filePath) return false; // Old path missing
+            if (path === "done/task.md") return true; // New path exists
+            return true;
+        });
+
+        await runTask(filePath, fileName, dirs, {
+            aiService: mockAiService,
+            gitService: mockGitService,
+            fs: mockFs,
+            execSync: mockExecSync,
+            matter: mockMatter,
+            logger: mockLogger
+        });
+
+        // Should try to append to the new path
+        expect(mockFs.writeFileSync).toHaveBeenCalledWith("done/task.md", expect.stringContaining("## Results"));
+        // Should NOT try to move
+        expect(mockFs.moveSync).not.toHaveBeenCalled();
+        // Should log info
+        expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining("found at done/task.md"));
     });
 
     it("should run successfully on first attempt", async () => {
