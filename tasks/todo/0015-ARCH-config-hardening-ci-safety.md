@@ -8,6 +8,7 @@ affected_files:
   - src/services/ai.service.test.js
 validation_cmd: npm test
 provider: gemini
+model: gemini-3-flash-preview
 ---
 
 # Config Hardening & CI Safety

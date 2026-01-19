@@ -7,6 +7,7 @@ affected_files:
   - ralph.config.js
 validation_cmd: npm test
 provider: gemini
+model: gemini-3-flash-preview
 ---
 
 # Interactive Setup Wizard & Auto-Trigger
