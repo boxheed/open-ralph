@@ -108,5 +108,46 @@ describe("ConfigService", () => {
             // Should still have built-in providers
             expect(config.providers["gemini"]).toBeDefined();
         });
+
+        it("should allow passing an object with configPath", () => {
+            const configPath = path.join(tmpDir, "custom-config.js");
+            const configContent = `
+                module.exports = {
+                    retries: 42
+                };
+            `;
+            fs.writeFileSync(configPath, configContent);
+
+            const config = loadConfig({ configPath });
+            expect(config.retries).toBe(42);
+        });
+
+        it("should use process.cwd() if source is not a string or valid object", () => {
+            // This hits the 'else' block
+            const config = loadConfig(null);
+            expect(config.dirs).toEqual(DEFAULTS.dirs);
+        });
+
+        it("should merge provider overrides from ralph.config.js", () => {
+            const configContent = `
+                module.exports = {
+                    providers: {
+                        gemini: {
+                            command: "custom-gemini"
+                        },
+                        newbie: {
+                            command: "new-cmd"
+                        }
+                    }
+                };
+            `;
+            fs.writeFileSync(path.join(tmpDir, "ralph.config.js"), configContent);
+
+            const config = loadConfig(tmpDir);
+
+            expect(config.providers.gemini.command).toBe("custom-gemini");
+            expect(config.providers.newbie.command).toBe("new-cmd");
+            expect(config.providers.newbie.name).toBe("newbie");
+        });
     });
 });

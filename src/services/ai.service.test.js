@@ -129,4 +129,53 @@ describe('ai.service', () => {
         // Provider should receive the file path from ContextService, not 'original prompt'
         expect(mockProvider.build).toHaveBeenCalledWith('/path/to/context.md', expect.anything());
     });
+
+    it('should handle process failure (non-zero exit code)', async () => {
+        const failSpawn = vi.fn().mockImplementation(() => {
+            const cp = new events.EventEmitter();
+            cp.stdout = new events.EventEmitter();
+            cp.stderr = new events.EventEmitter();
+            setTimeout(() => cp.emit('close', 1), 10);
+            return cp;
+        });
+
+        const config = { providers: { 'test': { build: () => ({ command: 'cmd' }) } } };
+        await expect(aiService.callAI('p', { spawn: failSpawn, config, provider: 'test' }))
+            .rejects.toThrow('failed with exit code 1');
+    });
+
+    it('should handle stderr output', async () => {
+        const stderrSpawn = vi.fn().mockImplementation(() => {
+            const cp = new events.EventEmitter();
+            cp.stdout = new events.EventEmitter();
+            cp.stderr = new events.EventEmitter();
+            setTimeout(() => {
+                cp.stderr.emit('data', Buffer.from('error details'));
+                cp.emit('close', 0);
+            }, 10);
+            return cp;
+        });
+
+        const config = { providers: { 'test': { build: () => ({ command: 'cmd' }) } } };
+        const output = await aiService.callAI('p', { spawn: stderrSpawn, config, provider: 'test' });
+        expect(output).toContain('error details');
+    });
+
+    it('should handle timeout', async () => {
+        vi.useFakeTimers();
+        const slowSpawn = vi.fn().mockImplementation(() => {
+            const cp = new events.EventEmitter();
+            cp.stdout = new events.EventEmitter();
+            cp.stderr = new events.EventEmitter();
+            cp.kill = vi.fn();
+            return cp;
+        });
+
+        const config = { providers: { 'test': { build: () => ({ command: 'cmd' }) } } };
+        const promise = aiService.callAI('p', { spawn: slowSpawn, config, provider: 'test', timeout: 1000 });
+        
+        vi.advanceTimersByTime(1001);
+        await expect(promise).rejects.toThrow('timed out after 1000ms');
+        vi.useRealTimers();
+    });
 });

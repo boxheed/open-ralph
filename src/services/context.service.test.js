@@ -83,6 +83,12 @@ describe('ContextService', () => {
 
             expect(mockFs.existsSync).toHaveBeenCalledWith(personaPath);
         });
+
+        it('should return system default if no persona name is provided', () => {
+            service = new ContextService({}, mockFs); // No defaultPersona in config
+            const result = service.resolvePersona({});
+            expect(result).toContain('ROLE: Senior Engineer');
+        });
     });
 
     describe('buildContext', () => {
