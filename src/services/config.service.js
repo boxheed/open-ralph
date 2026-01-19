@@ -25,19 +25,34 @@ function loadProviders(sourceDir, fsImpl = defaultFs) {
     if (fsImpl.existsSync(builtInDir)) {
         fsImpl.readdirSync(builtInDir).forEach(file => {
             if (file.endsWith(".js") && !file.endsWith(".test.js") && !file.endsWith(".spec.js")) {
-                const provider = require(path.join(builtInDir, file));
-                providers[provider.name] = provider;
+                try {
+                    const provider = require(path.join(builtInDir, file));
+                    if (provider && provider.name) {
+                        providers[provider.name] = provider;
+                    }
+                } catch (error) {
+                    console.warn(`Warning: Failed to load built-in provider ${file}: ${error.message}`);
+                }
             }
         });
     }
 
     // 2. Load user-defined providers from project root/.ralph/providers
-    const userProvidersDir = path.join(sourceDir, ".ralph", "providers");
+    const userProvidersDir = path.resolve(sourceDir, ".ralph", "providers");
     if (fsImpl.existsSync(userProvidersDir)) {
         fsImpl.readdirSync(userProvidersDir).forEach(file => {
             if (file.endsWith(".js") && !file.endsWith(".test.js") && !file.endsWith(".spec.js")) {
-                const provider = require(path.resolve(path.join(userProvidersDir, file)));
-                providers[provider.name] = provider;
+                try {
+                    const providerPath = path.resolve(userProvidersDir, file);
+                    const provider = require(providerPath);
+                    if (provider && provider.name) {
+                        providers[provider.name] = provider;
+                    } else {
+                        console.warn(`Warning: Custom provider in ${file} is missing a 'name' property. Skipping.`);
+                    }
+                } catch (error) {
+                    console.warn(`Warning: Failed to load custom provider ${file}: ${error.message}`);
+                }
             }
         });
     }
