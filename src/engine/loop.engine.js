@@ -122,15 +122,9 @@ class LoopEngine extends EventEmitter {
     }
 
     _commitTask(task) {
-        const donePath = path.join(this.config.dirs.done, task.fileName);
-        let filesToCommit = [donePath];
-        if (task.data.affected_files) {
-            const affected = Array.isArray(task.data.affected_files) 
-                ? task.data.affected_files 
-                : task.data.affected_files.split(/["\s,\"]+/).filter(Boolean);
-            filesToCommit = filesToCommit.concat(affected);
-        }
-        this.gitService.commit(`fix(${task.data.task_id}): automated task resolution`, filesToCommit);
+        // Simply commit everything. GitService.commit() now defaults to 'git add .'
+        // which captures the task move (todo -> done) and all AI changes.
+        this.gitService.commit(`fix(${task.data.task_id}): automated task resolution`);
     }
 }
 

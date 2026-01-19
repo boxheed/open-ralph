@@ -8,9 +8,9 @@ Ralph Agent is a platform-agnostic implementation of the **Ralph Wiggum Pattern*
 ## 🛠 Features
 - **Deterministic Workflow:** Processes tasks alphabetically from Markdown files.
 - **Reliability Loop:** Automatically retries fixes up to 3 times upon test failure.
-- **Safety First:** Hard-stop "Circuit Breaker" to prevent token-burn and hallucination loops.
-- **Audit Trails:** Every AI "thought" and shell output is appended to the task file.
-- **Platform Agnostic:** Works with Gemini CLI, but modular enough to swap with Aider, Claude-Code, or GPT.
+- **Dynamic Staging:** Automatically detects and commits all changes (including new files) upon successful validation.
+- **Event-Driven Observation:** Decoupled logging and reporting via an internal event system.
+- **Platform Agnostic:** Modular architecture allows swapping AI providers (Gemini, Aider, etc.) with ease.
 
 ---
 
@@ -42,13 +42,13 @@ npm link
 ## 📖 How to Use
 
 ### 1. Initialize a Project   
-Run the setup command in your target repository to initialize the environment (task directories, config, and default personas):   
+Run the setup command in your target repository to initialize the environment:   
 ```bash
 ralph setup
 ```
 
 ### 2. Author a Task   
-Create a `.md` file in `tasks/todo/`. The filename determines the order of execution (e.g., `01_fix_header.md`).
+Create a `.md` file in `tasks/todo/`. The filename determines the order of execution.
 
 **Example Task:**
 ```markdown
@@ -59,20 +59,22 @@ affected_files: ["src/auth.js", "src/config.js"]
 ---
 
 # Objective: Correct JWT Expiration
-The token is currently set to expire in `5m`. We need to change this to `1h` (one hour) to match our security policy.
-
-## Success Criteria
-1. Locate where `EXPIRES_IN` or similar is defined.
-2. Update the value to 1 hour.
-3. Run the validation test to confirm the token generated actually has a 1-hour lifespan.
+The token is currently set to expire in `5m`. We need to change this to `1h`.
 ```
+
+#### 💡 The role of `affected_files`
+In Ralph, `affected_files` acts as a **Context Hint**. It tells the AI which files are most relevant to the task, helping it focus its "attention" and stay within token limits. 
+*   **Note:** You do not need to list new files here for them to be committed. Ralph uses **Dynamic Staging** to automatically capture any files created or modified by the AI during a successful run.
 
 ### 3. Run the Agent   
 ```bash
-# Headless mode (Automatic)
+# Standard mode
 ralph
 
-# Interactive mode (Pause for review before validation/commit)
+# Verbose/Debug mode
+ralph --debug
+
+# Interactive mode (Pause for review before validation)
 ralph --interactive
 ```
 
@@ -80,97 +82,34 @@ ralph --interactive
 
 ## ⚙️ Configuration
 
-Ralph supports multiple AI providers (Gemini, Aider, GitHub Copilot, etc.). The default is `gemini`.
-
-### Setting the Provider
-
-You can set the provider globally in `ralph.config.js` or per-task in the front matter.
-
-**`ralph.config.js`**:
-```javascript
-module.exports = {
-  provider: "aider", // Set default to Aider
-  // model: "gpt-4", // Optional: Global model override
-  // ...
-};
-```
-
-**Task Front Matter**:
-```markdown
----
-task_id: "FEAT-123"
-provider: "gemini"
-model: "gemini-1.5-pro" # Override model for this task
-...
----
-```
-
-### Model Configuration & Precedence
-
-Ralph uses a flexible model configuration strategy. You are not required to set a model globally. If no model is specified, Ralph will defer to the AI provider's native default (e.g., whatever `gemini` or `aider` CLI uses by default).
-
-**Precedence Order:**
-1.  **Task Frontmatter:** (Highest priority) Defined in the `.md` file.
-2.  **Provider Default:** Defined in the provider's `.js` file (e.g., `defaultModel`).
-3.  **Global Config:** Defined in `ralph.config.js`.
-4.  **CLI Native Default:** (Lowest priority) If no model is resolved, Ralph runs the command without a model flag, letting the CLI tool choose its default.
-
 ### Supported Providers
-
-- **gemini** (Default)
-- **aider**
-- **github-copilot**
-- **forge**
-- **nanocoder**
-- **cline**
-- **opencode**
-- **qwen-code**
+Ralph uses a **Strategy Pattern** for AI providers. Currently supported:
+- **gemini** (Default), **aider**, **github-copilot**, **cline**, **qwen-code**, and more.
 
 ### Custom Providers
+You can add custom providers by placing a `.js` file in `.ralph/providers/`. Each provider must export a `name` and a `build(prompt, context)` function that returns a structured command.
 
-You can add your own AI providers by creating a `.js` file in your project's `.ralph/providers/` directory.
-
-**Strategy Pattern:**
-Export a `build` function that returns the structured command and arguments. This is safer and more flexible.
-
-**Example `.ralph/providers/my-custom-ai.js`**:
-```javascript
-module.exports = {
-  name: "my-custom-ai",
-  /**
-   * Builds the command execution details.
-   * @param {string} prompt - The task prompt.
-   * @param {object} context - { model, files }
-   * @returns {object} - { command: string, args: string[] }
-   */
-  build: (prompt, { model, files }) => {
-    const args = ["--task", prompt];
-    if (model) args.push("--engine", model);
-    if (files) args.push(...files.split(","));
-    
-    return {
-      command: "my-cli",
-      args
-    };
-  }
-};
-```
+---
 
 ## 🏗 Modular Architecture
 
-  * `bin/ralph.js`: CLI Entry point and argument parsing.
-  * `src/engine/`: The Core Loop logic and state management.
-  * `src/services/`: Pluggable connectors for Git and AI.
+Ralph is built with high-quality software engineering principles, including **Dependency Injection** and **Interface Segregation**:
 
-## 🛡 Safety & Circuit Breakers
-  * **Git Check:** Ralph will refuse to run if the repository has uncommitted changes.
-  * **Max Retries:** If a validation command fails 3 times, Ralph moves the task to `/failed` and stops to prevent infinite loops.
-  * **Interactive Gate:** Use `--interactive` to inspect code changes in your IDE before the agent executes the validation shell commands.
+- **`LoopEngine`**: The central event-driven coordinator of the Propose/Verify loop.
+- **`TaskRepository`**: Manages task persistence and state transitions (Todo → Done/Failed).
+- **`AIService`**: Orchestrates AI provider execution using the Strategy Pattern.
+- **`GitService`**: Handles workspace safety, validation execution, and dynamic commits.
+- **`EngineObserver`**: Decouples the core logic from reporting (logging).
+
+---
+
+## 🛡 Safety & Reliability
+- **Git Check:** Ralph refuses to run if the repository has uncommitted changes.
+- **Atomic Commits:** Changes are only committed if the `validation_cmd` exits with code 0.
+- **Circuit Breaker:** If a task fails 3 times, it is moved to `tasks/failed` to prevent infinite loops and token burn.
 
 ## 🤝 Contributing
-  * Create a task in `/tasks/todo` for your feature.
-  * Run `ralph` to let the agent build its own improvements.
-  * Submit a PR!
+Submit a PR or create a task in `tasks/todo` and let Ralph build it for you!
 
 ## 📄 License
 Apache 2.0
