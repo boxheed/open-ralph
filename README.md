@@ -17,7 +17,7 @@ Ralph Agent is a platform-agnostic implementation of the **Ralph Wiggum Pattern*
 ## 🚀 Installation
 
 ### Prerequisites
-- **Node.js** (v18+)
+- **Node.js** (v22+)
 - **Gemini CLI** (for the default AI engine)
   ```bash
   npm install -g @google/gemini-cli
