@@ -5,8 +5,10 @@ const DEFAULTS = {
     dirs: {
         todo: "./tasks/todo",
         done: "./tasks/done",
-        failed: "./tasks/failed"
+        failed: "./tasks/failed",
+        personas: "./.ralph/personas"
     },
+    defaultPersona: "ralph",
     retries: 3,
     timeouts: {
         ai: 1200000, // 20 minutes
@@ -22,7 +24,7 @@ function loadProviders(sourceDir, fsImpl = defaultFs) {
     const builtInDir = path.join(__dirname, "providers");
     if (fsImpl.existsSync(builtInDir)) {
         fsImpl.readdirSync(builtInDir).forEach(file => {
-            if (file.endsWith(".js")) {
+            if (file.endsWith(".js") && !file.endsWith(".test.js") && !file.endsWith(".spec.js")) {
                 const provider = require(path.join(builtInDir, file));
                 providers[provider.name] = provider;
             }
@@ -33,7 +35,7 @@ function loadProviders(sourceDir, fsImpl = defaultFs) {
     const userProvidersDir = path.join(sourceDir, ".ralph", "providers");
     if (fsImpl.existsSync(userProvidersDir)) {
         fsImpl.readdirSync(userProvidersDir).forEach(file => {
-            if (file.endsWith(".js")) {
+            if (file.endsWith(".js") && !file.endsWith(".test.js") && !file.endsWith(".spec.js")) {
                 const provider = require(path.resolve(path.join(userProvidersDir, file)));
                 providers[provider.name] = provider;
             }

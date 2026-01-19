@@ -1,13 +1,13 @@
 {
   "name": "ralph-loop-agent",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "An autonomous AI coding agent following the Ralph Wiggum pattern.",
   "main": "ralph.js",
   "bin": {
     "ralph": "./bin/ralph.js"
   },
   "scripts": {
-    "setup": "mkdir -p tasks/todo tasks/done tasks/failed",
+    "setup": "node bin/ralph.js setup",
     "test": "vitest run --coverage --coverage.include=src/**/*.js"
   },
   "dependencies": {

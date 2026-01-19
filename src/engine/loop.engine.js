@@ -2,18 +2,20 @@ const defaultFs = require("fs-extra");
 const path = require("path");
 const defaultMatter = require("gray-matter");
 const { execSync: defaultExecSync } = require("child_process");
+const { ContextService } = require("../services/context.service");
 
 async function runTask(filePath, fileName, dirs, { 
     aiService, 
     gitService, 
     fs = defaultFs, 
     execSync = defaultExecSync,
-    config = {},
+    config = {}, 
     matter = defaultMatter,
     logger = { info: () => {}, error: () => {}, warn: () => {}, debug: () => {} },
     ...options 
 }) {
     const { data, content } = matter(fs.readFileSync(filePath, "utf8"));
+    const contextService = new ContextService(config, fs);
     let history = [];
     let success = false;
     
@@ -33,7 +35,9 @@ async function runTask(filePath, fileName, dirs, {
             config,
             files: data.affected_files,
             model,
-            timeout: timeouts.ai
+            timeout: timeouts.ai,
+            contextService,
+            task: { data, content, history }
         });
         
         history.push(`### Attempt ${i}\n${aiOutput}`);
@@ -45,7 +49,7 @@ async function runTask(filePath, fileName, dirs, {
         try {
             gitService.runValidation(data.validation_cmd, timeouts.validation);
             success = true;
-            finalize(filePath, fileName, dirs.DONE, history, null, fs);
+            finalize(filePath, fileName, dirs.DONE, history, null, fs, logger);
 
             const movedTaskPath = path.join(dirs.DONE, fileName);
             let filesToCommit = [movedTaskPath];
@@ -59,18 +63,29 @@ async function runTask(filePath, fileName, dirs, {
             gitService.commit(`fix(${data.task_id}): automated task resolution`, filesToCommit);
             break;
         } catch (err) {
-            if (i === retries) finalize(filePath, fileName, dirs.FAILED, history, err.message, fs);
+            if (i === retries) finalize(filePath, fileName, dirs.FAILED, history, err.message, fs, logger);
         }
     }
 }
 
-function finalize(oldPath, fileName, targetDir, history, error, fs) {
+function finalize(oldPath, fileName, targetDir, history, error, fs, logger) {
     let log = `\n\n## Results\n- Status: ${targetDir}\n${history.join("\n")}`;
     if (error) {
         log += `\n- Error: ${error}`;
     }
-    fs.writeFileSync(oldPath, fs.readFileSync(oldPath, "utf8") + log);
-    fs.moveSync(oldPath, path.join(targetDir, fileName));
+
+    if (fs.existsSync(oldPath)) {
+        fs.writeFileSync(oldPath, fs.readFileSync(oldPath, "utf8") + log);
+        fs.moveSync(oldPath, path.join(targetDir, fileName));
+    } else {
+        const targetPath = path.join(targetDir, fileName);
+        if (fs.existsSync(targetPath)) {
+            if (logger) logger.info(`Info: Task file not found at ${oldPath}, but found at ${targetPath}. Appending log there.`);
+            fs.writeFileSync(targetPath, fs.readFileSync(targetPath, "utf8") + log);
+        } else {
+            if (logger) logger.warn(`Warning: Task file missing from ${oldPath} AND ${targetPath}. Cannot save execution log.`);
+        }
+    }
 }
 
 module.exports = { runTask };

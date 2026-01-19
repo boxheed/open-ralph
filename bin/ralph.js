@@ -6,6 +6,7 @@ const GitService = require("../src/services/git.service");
 const { callAI } = require("../src/services/ai.service");
 const { loadConfig } = require("../src/services/config.service");
 const { LoggerService } = require("../src/services/logger.service");
+const { SetupService } = require("../src/services/setup.service");
 const { Command } = require("commander");
 const path = require("path");
 const pkg = require("../package.json");
@@ -18,11 +19,23 @@ program
   .version(pkg.version);
 
 program
+  .command("setup")
+  .description("Initialize the Ralph environment")
+  .action(async () => {
+    await SetupService.runSetup();
+  });
+
+program
   .command("run", { isDefault: true })
   .description("Run the Ralph loop")
   .option("-i, --interactive", "Enable interactive mode")
   .option("-c, --config <path>", "Path to config file")
   .action(async (options) => {
+    if (!(await SetupService.isInitialized())) {
+        console.error("❌ Ralph environment not found. Run `ralph setup` to initialize this project.");
+        process.exit(1);
+    }
+
     if (!GitService.isRepoClean()) {
         console.error("❌ Git is dirty. Commit your work first.");
         process.exit(1);
@@ -40,10 +53,6 @@ program
         DONE: config.dirs.done, 
         FAILED: config.dirs.failed 
     };
-
-    await fs.ensureDir(DIRS.TODO);
-    await fs.ensureDir(DIRS.DONE);
-    await fs.ensureDir(DIRS.FAILED);
 
     const files = fs.readdirSync(DIRS.TODO).filter(f => f.endsWith(".md")).sort();
     

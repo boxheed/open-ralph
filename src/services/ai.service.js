@@ -1,7 +1,26 @@
 const defaultSpawn = require("child_process").spawn;
+const defaultFs = require("fs-extra");
 
-function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}, files = "", model = null, timeout = 0 } = {}) {
+/**
+ * Executes an AI provider command.
+ * 
+ * Architecture Note:
+ * This service executes AI providers using the Strategy Pattern.
+ * Providers must export a `build(prompt, context)` function which returns
+ * structured command arguments, allowing for safe `spawn` execution.
+ */
+function callAI(prompt, { spawn = defaultSpawn, fs = defaultFs, provider = "gemini", config = {}, files = "", model = null, timeout = 0, contextService = null, task = null } = {}) {
     return new Promise((resolve, reject) => {
+        // If ContextService is provided, build the context file and use its path as the prompt
+        if (contextService && task) {
+            try {
+                prompt = contextService.buildContext(task);
+                console.log(`DEBUG: Context built at ${prompt}`);
+            } catch (err) {
+                return reject(new Error(`Failed to build context: ${err.message}`));
+            }
+        }
+
         const providers = config.providers || {};
         const providerConfig = providers[provider];
         
@@ -9,33 +28,26 @@ function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}
             return reject(new Error(`Unknown provider: ${provider}`));
         }
 
-        let commandTemplate = providerConfig.command;
-        if (!commandTemplate) {
-             return reject(new Error(`No command template for provider: ${provider}`));
+        // Resolve Model Priority: Task > Provider Default > Global Config
+        const resolvedModel = model || providerConfig.defaultModel || config.model || null;
+
+        if (typeof providerConfig.build !== "function") {
+             return reject(new Error(`Provider ${provider} must export a 'build' function.`));
         }
+
+        // --- Strategy Pattern (Strict) ---
+        // Inject fs into the provider context
+        const buildResult = providerConfig.build(prompt, { model: resolvedModel, files, fs });
+        const executable = buildResult.command;
+        const args = buildResult.args || [];
         
-        // Priority: Frontmatter model > Provider default model > Global config model
-        const resolvedModel = model || providerConfig.defaultModel || config.model || "";
+        // Use shell: false for security
+        const useShell = false; 
+        const commandStringForDebug = `${executable} ${args.map(a => `"${a}"`).join(" ")}`;
 
-        // Allow provider to customize the prompt
-        const finalPrompt = providerConfig.getPrompt ? providerConfig.getPrompt(prompt, { model: resolvedModel, files }) : prompt;
+        console.log(`DEBUG: Executing command: ${commandStringForDebug}`);
         
-        const safePrompt = finalPrompt
-            .replace(/\\/g, "\\\\")
-            .replace(/"/g, "\\\"")
-            .replace(/\$/g, "\\$")
-            .replace(/`/g, "\\`")
-            .replace(/\n/g, "\\n");
-        const safeFiles = files;
-        const safeModel = resolvedModel;
-
-        const command = commandTemplate
-            .replace(/{prompt}/g, `"${safePrompt}"`)
-            .replace(/{files}/g, safeFiles)
-            .replace(/{model}/g, safeModel);
-
-        console.log(`DEBUG: Executing command: ${command}`);
-        const child = spawn(command, [], { shell: true });
+        const child = spawn(executable, args, { shell: useShell });
         
         let output = "";
         let timer = null;
@@ -62,11 +74,6 @@ function callAI(prompt, { spawn = defaultSpawn, provider = "gemini", config = {}
         child.on("close", (code) => {
             if (timer) clearTimeout(timer);
             if (code !== 0) {
-                // If killed by timeout, we might have already rejected.
-                // However, child.kill() usually results in a signal or code.
-                // If we already rejected, this promise is settled.
-                // But to be safe and avoid unhandled rejections if logic overlaps:
-                // We rely on the fact that a Promise can only settle once.
                 reject(new Error(`${provider} failed with exit code ${code}`));
             } else {
                 resolve(output || "No output from AI.");
