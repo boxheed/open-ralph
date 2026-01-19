@@ -12,8 +12,8 @@ module.exports = {
             }
         }
         return {
-            command: "gh",
-            args: ["copilot", "suggest", message]
+            command: "copilot",
+            args: ["--allow-all-tools", "--prompt", message]
         };
     }
 };
