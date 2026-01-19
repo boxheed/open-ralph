@@ -27,7 +27,7 @@ Ralph Agent is a platform-agnostic implementation of the **Ralph Wiggum Pattern*
 Install the agent directly from the repository to use the ralph command anywhere:
 
 ```bash
-npm install -g https://github.com/your-username/ralph-agent
+npm install -g https://github.com/boxheed/ralph-agent
 ```
 
 ### Local Development Setup
