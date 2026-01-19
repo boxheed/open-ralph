@@ -2,92 +2,90 @@ const defaultSpawn = require("child_process").spawn;
 const defaultFs = require("fs-extra");
 
 /**
- * Executes an AI provider command.
- * 
- * Architecture Note:
- * This service executes AI providers using the Strategy Pattern.
- * Providers must export a `build(prompt, context)` function which returns
- * structured command arguments, allowing for safe `spawn` execution.
+ * AIService orchestrates the interaction with AI providers.
+ * It uses the Strategy Pattern to execute different AI CLI tools.
  */
-function callAI(prompt, { spawn = defaultSpawn, fs = defaultFs, provider = null, config = {}, files = "", model = null, timeout = 0, contextService = null, task = null } = {}) {
-    return new Promise((resolve, reject) => {
-        // Resolve provider: explicitly passed > config default
-        const activeProvider = provider || config.provider;
+class AIService {
+    constructor({ spawn = defaultSpawn, fs = defaultFs, config = {} } = {}) {
+        this.spawn = spawn;
+        this.fs = fs;
+        this.config = config;
+    }
+
+    /**
+     * Calls the AI provider to generate a response.
+     */
+    async callAI(prompt, { provider = null, files = "", model = null, timeout = 0, contextService = null, task = null } = {}) {
+        const activeProvider = provider || this.config.provider;
 
         if (!activeProvider) {
-            return reject(new Error("No AI provider configured. Please check your configuration."));
+            throw new Error("No AI provider configured. Please check your configuration.");
         }
 
-        // If ContextService is provided, build the context file and use its path as the prompt
+        // Handle Context Building
+        let finalPrompt = prompt;
         if (contextService && task) {
-            try {
-                prompt = contextService.buildContext(task);
-            } catch (err) {
-                return reject(new Error(`Failed to build context: ${err.message}`));
-            }
+            finalPrompt = contextService.buildContext(task);
         }
 
-        const providers = config.providers || {};
+        const providers = this.config.providers || {};
         const providerConfig = providers[activeProvider];
         
         if (!providerConfig) {
-            return reject(new Error(`Unknown provider: ${activeProvider}`));
+            throw new Error(`Unknown provider: ${activeProvider}`);
         }
 
         // Resolve Model Priority: Task > Provider Default > Global Config
-        const resolvedModel = model || providerConfig.defaultModel || config.model || null;
+        const resolvedModel = model || providerConfig.defaultModel || this.config.model || null;
 
         if (typeof providerConfig.build !== "function") {
-             return reject(new Error(`Provider ${activeProvider} must export a 'build' function.`));
+             throw new Error(`Provider ${activeProvider} must export a 'build' function.`);
         }
 
-        // --- Strategy Pattern (Strict) ---
-        // Inject fs into the provider context
-        const buildResult = providerConfig.build(prompt, { model: resolvedModel, files, fs });
+        const buildResult = providerConfig.build(finalPrompt, { model: resolvedModel, files, fs: this.fs });
         const executable = buildResult.command;
         const args = buildResult.args || [];
         
-        // Use shell: false for security
-        const useShell = false; 
-        
-        const child = spawn(executable, args, { shell: useShell });
-        
-        let output = "";
-        let timer = null;
+        return new Promise((resolve, reject) => {
+            const child = this.spawn(executable, args, { shell: false });
+            
+            let output = "";
+            let timer = null;
 
-        if (timeout > 0) {
-            timer = setTimeout(() => {
-                child.kill();
-                reject(new Error(`AI process timed out after ${timeout}ms`));
-            }, timeout);
-        }
-
-        child.stdout.on("data", (data) => {
-            const str = data.toString();
-            process.stdout.write(str);
-            output += str;
-        });
-
-        child.stderr.on("data", (data) => {
-            const str = data.toString();
-            process.stderr.write(str);
-            output += str;
-        });
-
-        child.on("close", (code) => {
-            if (timer) clearTimeout(timer);
-            if (code !== 0) {
-                reject(new Error(`${activeProvider} failed with exit code ${code}`));
-            } else {
-                resolve(output || "No output from AI.");
+            if (timeout > 0) {
+                timer = setTimeout(() => {
+                    child.kill();
+                    reject(new Error(`AI process timed out after ${timeout}ms`));
+                }, timeout);
             }
-        });
 
-        child.on("error", (err) => {
-            if (timer) clearTimeout(timer);
-            reject(new Error(`${activeProvider} failed: ${err.message}`));
+            child.stdout.on("data", (data) => {
+                const str = data.toString();
+                process.stdout.write(str);
+                output += str;
+            });
+
+            child.stderr.on("data", (data) => {
+                const str = data.toString();
+                process.stderr.write(str);
+                output += str;
+            });
+
+            child.on("close", (code) => {
+                if (timer) clearTimeout(timer);
+                if (code !== 0) {
+                    reject(new Error(`${activeProvider} failed with exit code ${code}`));
+                } else {
+                    resolve(output || "No output from AI.");
+                }
+            });
+
+            child.on("error", (err) => {
+                if (timer) clearTimeout(timer);
+                reject(new Error(`${activeProvider} failed: ${err.message}`));
+            });
         });
-    });
+    }
 }
 
-module.exports = { callAI };
+module.exports = { AIService };

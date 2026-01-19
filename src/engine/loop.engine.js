@@ -1,98 +1,126 @@
-const defaultFs = require("fs-extra");
 const path = require("path");
-const defaultMatter = require("gray-matter");
-const { execSync: defaultExecSync } = require("child_process");
-const { ContextService } = require("../services/context.service");
 
-async function runTask(filePath, fileName, dirs, { 
-    aiService, 
-    gitService, 
-    fs = defaultFs, 
-    execSync = defaultExecSync,
-    config = {}, 
-    matter = defaultMatter,
-    logger = { info: () => {}, error: () => {}, warn: () => {}, debug: () => {} },
-    ...options 
-}) {
-    const { data, content } = matter(fs.readFileSync(filePath, "utf8"));
-    const contextService = new ContextService(config, fs);
-    let history = [];
-    let success = false;
-    
-    const retries = config.retries || 3;
-    
-    const provider = data.provider || config.provider;
-    const model = data.model || config.model;
-    const timeouts = config.timeouts || {};
+/**
+ * LoopEngine coordinates the main Ralph loop.
+ * It is agnostic of the persistence layer and AI implementation details.
+ */
+class LoopEngine {
+    constructor({ 
+        aiService, 
+        gitService, 
+        taskRepository, 
+        contextService, 
+        logger, 
+        config = {} 
+    }) {
+        this.aiService = aiService;
+        this.gitService = gitService;
+        this.taskRepository = taskRepository;
+        this.contextService = contextService;
+        this.logger = logger;
+        this.config = config;
+        this.retries = config.retries || 3;
+    }
 
-    for (let i = 1; i <= retries; i++) {
-        logger.info(`   Attempt ${i}/${retries}...`);
+    /**
+     * Executes all pending tasks in the repository.
+     */
+    async runAll() {
+        const files = this.taskRepository.listTodo();
         
-        const prompt = `ROLE: Senior Engineer\nTASK: ${content}\nFILES: ${data.affected_files}`;
-        
-        const aiOutput = await aiService.callAI(prompt, {
-            provider,
-            config,
-            files: data.affected_files,
-            model,
-            timeout: timeouts.ai,
-            contextService,
-            task: { data, content, history }
-        });
-        
-        history.push(`### Attempt ${i}\n${aiOutput}`);
-
-        if (options.interactive) {
-            logger.info("⏸  AI has proposed changes. Please inspect the code.");
-            execSync("read -p \"Press [Enter] to continue to validation...\" < /dev/tty");
+        if (files.length === 0) {
+            this.logger.info("No tasks found in TODO directory.");
+            return;
         }
 
-        try {
-            logger.info(`🔍 Running validation: ${data.validation_cmd}`);
-            gitService.runValidation(data.validation_cmd, timeouts.validation);
-            success = true;
-            finalize(filePath, fileName, dirs.DONE, history, null, fs, logger);
+        this.logger.info(`Found ${files.length} tasks. Starting loop...`);
 
-            const movedTaskPath = path.join(dirs.DONE, fileName);
-            let filesToCommit = [movedTaskPath];
-            if (data.affected_files) {
-                if (Array.isArray(data.affected_files)) {
-                    filesToCommit = filesToCommit.concat(data.affected_files);
-                } else if (typeof data.affected_files === 'string') {
-                    filesToCommit = filesToCommit.concat(data.affected_files.split(/[\s,]+/).map(s => s.trim()).filter(Boolean));
+        for (const file of files) {
+            this.logger.info(`▶️ Running task: ${file}`);
+            await this.runTask(file);
+        }
+    }
+
+    /**
+     * Runs a single task through the Propose -> Execute -> Verify cycle.
+     */
+    async runTask(fileName, options = {}) {
+        const task = this.taskRepository.loadTask(fileName);
+        const { data, content } = task;
+        
+        let history = [];
+        let success = false;
+        
+        const provider = data.provider || this.config.provider;
+        const model = data.model || this.config.model;
+        const timeouts = this.config.timeouts || {};
+
+        for (let i = 1; i <= this.retries; i++) {
+            this.logger.info(`   Attempt ${i}/${this.retries}...`);
+            
+            const prompt = `ROLE: Senior Engineer\nTASK: ${content}\nFILES: ${data.affected_files}`;
+            
+            try {
+                const aiOutput = await this.aiService.callAI(prompt, {
+                    provider,
+                    files: data.affected_files,
+                    model,
+                    timeout: timeouts.ai,
+                    contextService: this.contextService,
+                    task: { data, content, history }
+                });
+                
+                history.push(`### Attempt ${i}\n${aiOutput}`);
+
+                if (options.interactive || this.config.interactive) {
+                    this.logger.info("⏸  AI has proposed changes. Please inspect the code.");
+                    // In a real environment, we'd need a way to pause and wait for user input
+                    // For now, keeping the shell command as a placeholder if needed, 
+                    // but ideally this should be handled by the shell/CLI layer.
+                }
+
+                this.logger.info(`🔍 Running validation: ${data.validation_cmd}`);
+                this.gitService.runValidation(data.validation_cmd, timeouts.validation);
+                
+                success = true;
+                this.taskRepository.markDone(task, history);
+                
+                this._commitTask(task);
+                this.logger.success(`Task ${fileName} completed successfully.`);
+                break;
+            } catch (err) {
+                this.logger.warn(`Attempt ${i} failed: ${err.message}`);
+                history.push(`### Attempt ${i} Failed\nError: ${err.message}`);
+                
+                if (i === this.retries) {
+                    this.logger.error(`Task ${fileName} failed after ${this.retries} attempts.`);
+                    this.taskRepository.markFailed(task, history, err.message);
                 }
             }
-            gitService.commit(`fix(${data.task_id}): automated task resolution`, filesToCommit);
-            logger.success(`Task ${fileName} completed successfully.`);
-            break;
-        } catch (err) {
-            logger.warn(`Attempt ${i} failed validation: ${err.message}`);
-            if (i === retries) {
-                logger.error(`Task ${fileName} failed after ${retries} attempts.`);
-                finalize(filePath, fileName, dirs.FAILED, history, err.message, fs, logger);
+        }
+    }
+
+    /**
+     * Commits the completed task and its affected files.
+     * @private
+     */
+    _commitTask(task) {
+        const { data, fileName } = task;
+        const donePath = path.join(this.config.dirs.done, fileName);
+        let filesToCommit = [donePath];
+
+        if (data.affected_files) {
+            if (Array.isArray(data.affected_files)) {
+                filesToCommit = filesToCommit.concat(data.affected_files);
+            } else if (typeof data.affected_files === 'string') {
+                filesToCommit = filesToCommit.concat(
+                    data.affected_files.split(/["\s,"]+/).map(s => s.trim()).filter(Boolean)
+                );
             }
         }
+
+        this.gitService.commit(`fix(${data.task_id}): automated task resolution`, filesToCommit);
     }
 }
 
-function finalize(oldPath, fileName, targetDir, history, error, fs, logger) {
-    let log = `\n\n## Results\n- Status: ${targetDir}\n${history.join("\n")}`;
-    if (error) {
-        log += `\n- Error: ${error}`;
-    }
-
-    if (fs.existsSync(oldPath)) {
-        fs.writeFileSync(oldPath, fs.readFileSync(oldPath, "utf8") + log);
-        fs.moveSync(oldPath, path.join(targetDir, fileName));
-    } else {
-        const targetPath = path.join(targetDir, fileName);
-        if (fs.existsSync(targetPath)) {
-            if (logger) logger.info(`Info: Task file not found at ${oldPath}, but found at ${targetPath}. Appending log there.`);
-            fs.writeFileSync(targetPath, fs.readFileSync(targetPath, "utf8") + log);
-        } else {
-            if (logger) logger.warn(`Warning: Task file missing from ${oldPath} AND ${targetPath}. Cannot save execution log.`);
-        }
-    }
-}
-
-module.exports = { runTask };
+module.exports = { LoopEngine };

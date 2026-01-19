@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
 const fs = require("fs-extra");
-const { runTask } = require("../src/engine/loop.engine");
-const GitService = require("../src/services/git.service");
-const { callAI } = require("../src/services/ai.service");
+const { LoopEngine } = require("../src/engine/loop.engine");
+const { GitService } = require("../src/services/git.service");
+const { AIService } = require("../src/services/ai.service");
 const { loadConfig } = require("../src/services/config.service");
 const { LoggerService } = require("../src/services/logger.service");
 const { SetupService } = require("../src/services/setup.service");
+const { TaskRepository } = require("../src/services/task.repository");
+const { ContextService } = require("../src/services/context.service");
 const { Command } = require("commander");
 const path = require("path");
 const pkg = require("../package.json");
@@ -25,10 +27,10 @@ program
   .option("-m, --model <name>", "AI model to use")
   .action(async (options) => {
     const isInteractive = !options.provider && process.stdout.isTTY && !process.env.CI;
-    await SetupService.runSetup({ 
-        provider: options.provider, 
-        model: options.model, 
-        interactive: isInteractive 
+    await SetupService.runSetup({
+        provider: options.provider,
+        model: options.model,
+        interactive: isInteractive
     });
   });
 
@@ -37,14 +39,14 @@ program
   .description("List all tasks and their status")
   .action(async () => {
     const config = loadConfig();
-    const DIRS = { 
-        TODO: config.dirs.todo, 
-        DONE: config.dirs.done, 
-        FAILED: config.dirs.failed 
+    const DIRS = {
+        TODO: config.dirs.todo,
+        DONE: config.dirs.done,
+        FAILED: config.dirs.failed
     };
 
     console.log("\n📋 Ralph Task Status:");
-    
+
     const printTasks = (dir, label, color) => {
         if (fs.existsSync(dir)) {
             const files = fs.readdirSync(dir).filter(f => f.endsWith(".md")).sort();
@@ -107,45 +109,26 @@ program
         }
     }
 
-    if (!GitService.isRepoClean()) {
+    const gitService = new GitService();
+    if (!gitService.isRepoClean()) {
         logger.error("Git is dirty. Commit your work first.");
         process.exit(1);
     }
 
-    const DIRS = { 
-        TODO: config.dirs.todo, 
-        DONE: config.dirs.done, 
-        FAILED: config.dirs.failed 
-    };
+    const taskRepository = new TaskRepository({ config });
+    const aiService = new AIService({ config });
+    const contextService = new ContextService(config);
 
-    if (!fs.existsSync(DIRS.TODO)) {
-        logger.error(`TODO directory not found at ${DIRS.TODO}`);
-        process.exit(1);
-    }
+    const engine = new LoopEngine({
+        aiService,
+        gitService,
+        taskRepository,
+        contextService,
+        logger,
+        config
+    });
 
-    const files = fs.readdirSync(DIRS.TODO).filter(f => f.endsWith(".md")).sort();
-    
-    const services = {
-        aiService: { callAI },
-        gitService: GitService
-    };
-
-    if (files.length === 0) {
-        logger.info("No tasks found in TODO directory.");
-        return;
-    }
-
-    logger.info(`Found ${files.length} tasks. Starting loop...`);
-
-    for (const file of files) {
-        logger.info(`▶️ Running task: ${file}`);
-        await runTask(`${DIRS.TODO}/${file}`, file, DIRS, {
-            interactive: options.interactive || false,
-            config,
-            logger,
-            ...services
-        });
-    }
+    await engine.runAll();
   });
 
 program.parse();
