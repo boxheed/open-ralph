@@ -1,7 +1,7 @@
 const defaultFs = require("fs");
 
 module.exports = {
-    name: "qwen-code",
+    name: "qwen",
     build: (prompt, { fs = defaultFs } = {}) => {
         let message = prompt;
         if (fs.existsSync(prompt)) {
@@ -12,8 +12,8 @@ module.exports = {
             }
         }
         return {
-            command: "qwen-code",
-            args: [message]
+            command: "qwen",
+            args: ["--yolo", message]
         };
     }
 };
