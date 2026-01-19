@@ -8,7 +8,7 @@
   },
   "scripts": {
     "setup": "node bin/ralph.js setup",
-    "test": "vitest run --coverage --coverage.include=src/**/*.js"
+    "test": "vitest run --coverage.enabled --coverage.provider=v8 --coverage.include=src/**/*.js"
   },
   "dependencies": {
     "@inquirer/prompts": "^8.2.0",
@@ -28,6 +28,7 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.17",
+    "@vitest/coverage-istanbul": "^4.0.17",
     "vitest": "^4.0.17"
   }
 }
