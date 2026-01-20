@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.4](https://github.com/boxheed/open-ralph/compare/v0.1.3...v0.1.4) (2026-01-20)
+
+
+### Bug Fixes
+
+* update provider argument handling and enhance test cases ([a39eb2c](https://github.com/boxheed/open-ralph/commit/a39eb2c8b6a7cd7c2713a564f45e5a6c37fd12e1))
+
 ### [0.1.3](https://github.com/boxheed/open-ralph/compare/v0.1.2...v0.1.3) (2026-01-19)
 
 
