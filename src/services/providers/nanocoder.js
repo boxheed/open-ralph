@@ -13,7 +13,7 @@ module.exports = {
         }
         return {
             command: "nanocoder",
-            args: [message]
+            args: ["run", message]
         };
     }
 };

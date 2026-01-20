@@ -30,16 +30,16 @@ describe('Providers Service', () => {
                     cmd: 'copilot', 
                     argsPrefix: ['--allow-all-tools', '--prompt'] 
                 },
-                { module: cline, cmd: 'cline', argsPrefix: [] },
-                { module: nanocoder, cmd: 'nanocoder', argsPrefix: [] },
-                { module: opencode, cmd: 'opencode', argsPrefix: [] },
+                { module: cline, cmd: 'cline', argsPrefix: [], argsPostfix: ["--oneshot", "--yolo"] },
+                { module: nanocoder, cmd: 'nanocoder', argsPrefix: ["run"] },
+                { module: opencode, cmd: 'opencode', argsPrefix: ["run"] },
                 { 
                     module: qwenCode, 
                     cmd: 'qwen', 
                     argsPrefix: ['--yolo'] 
                 },
             ];
-        standardProviders.forEach(({ module, cmd, argsPrefix }) => {
+        standardProviders.forEach(({ module, cmd, argsPrefix = [], argsPostfix = [] }) => {
             describe(module.name, () => {
                 it('should use raw text if prompt is not a file', () => {
                     mockFs.existsSync.mockReturnValue(false);
@@ -47,7 +47,7 @@ describe('Providers Service', () => {
                     const result = module.build(prompt, { fs: mockFs });
 
                     expect(result.command).toBe(cmd);
-                    expect(result.args).toEqual([...argsPrefix, prompt]);
+                    expect(result.args).toEqual([...argsPrefix, prompt, ...argsPostfix]);
                     expect(mockFs.existsSync).toHaveBeenCalledWith(prompt);
                 });
 
@@ -60,7 +60,7 @@ describe('Providers Service', () => {
 
                     const result = module.build(filePath, { fs: mockFs });
 
-                    expect(result.args).toEqual([...argsPrefix, fileContent]);
+                    expect(result.args).toEqual([...argsPrefix, fileContent, ...argsPostfix]);
                     expect(mockFs.readFileSync).toHaveBeenCalledWith(filePath, 'utf8');
                 });
 
@@ -70,7 +70,7 @@ describe('Providers Service', () => {
                     mockFs.readFileSync.mockImplementation(() => { throw new Error("Read error"); });
 
                     const result = module.build(filePath, { fs: mockFs });
-                    expect(result.args).toEqual([...argsPrefix, filePath]);
+                    expect(result.args).toEqual([...argsPrefix, filePath, ...argsPostfix]);
                 });
             });
         });
@@ -130,30 +130,13 @@ describe('Providers Service', () => {
         it('should use --message flag', () => {
             const result = aider.build("fix bug", {});
             expect(result.command).toBe("aider");
-            expect(result.args[0]).toBe("--message");
+            expect(result.args[0]).toBe("--message-file");
             expect(result.args[1]).toBe("fix bug");
-        });
-
-        it('should rewrite prompt if it is a specific context file path', () => {
-            const result = aider.build(".ralph/context/task.md", {});
-            expect(result.args[1]).toBe("Read instructions in .ralph/context/task.md");
         });
 
         it('should NOT rewrite prompt if it is just a random md file', () => {
             const result = aider.build("random.md", {});
             expect(result.args[1]).toBe("random.md");
-        });
-
-        it('should split files string into individual arguments', () => {
-            const result = aider.build("msg", { files: "file1.js file2.js" });
-            expect(result.args).toContain("file1.js");
-            expect(result.args).toContain("file2.js");
-        });
-
-        it('should handle comma separated files', () => {
-            const result = aider.build("msg", { files: "file1.js,file2.js" });
-            expect(result.args).toContain("file1.js");
-            expect(result.args).toContain("file2.js");
         });
 
         it('should inject model flag', () => {

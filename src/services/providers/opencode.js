@@ -13,7 +13,7 @@ module.exports = {
         }
         return {
             command: "opencode",
-            args: [message]
+            args: ["run", message]
         };
     }
 };
