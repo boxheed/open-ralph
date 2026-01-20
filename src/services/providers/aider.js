@@ -9,27 +9,13 @@ module.exports = {
      */
     build: (prompt, { model, files }) => {
         let message = prompt;
-        // If prompt is a file path to the context file, instruct Aider to read it
-        if (prompt.endsWith(".md") && (prompt.includes(".ralph") || prompt.includes("/context/"))) {
-            message = `Read instructions in ${prompt}`;
-        }
-
-        const args = ["--message", message];
         
-        if (files) {
-            // Split files string into array if it's space-separated, or just push if single
-            // Ideally, files should be passed as an array from the engine, but currently it's a string
-            // We'll split by comma or space to be safe, assuming file paths don't contain them for now.
-            // The previous logic passed the raw string "file1.js file2.js". 
-            // Aider expects `aider file1.js file2.js`.
-            // So we need to push them as separate args.
-            const fileList = files.split(/[\s,]+/).filter(f => f.trim().length > 0);
-            args.push(...fileList);
-        }
-
+        const args = [];
+        
         if (model) {
             args.push("--model", model);
         }
+        args.push("--message-file", prompt);
         
         return {
             command: "aider",

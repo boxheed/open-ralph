@@ -3,6 +3,7 @@ const defaultFs = require("fs");
 module.exports = {
     name: "cline",
     build: (prompt, { fs = defaultFs } = {}) => {
+
         let message = prompt;
         if (fs.existsSync(prompt)) {
             try {
@@ -13,7 +14,8 @@ module.exports = {
         }
         return {
             command: "cline",
-            args: [message]
+            args: [message, "--oneshot", "--yolo"]
         };
+
     }
 };
