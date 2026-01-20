@@ -1,0 +1,86 @@
+---
+import Layout from '../layouts/Layout.astro';
+import RobotIcon from '../components/RobotIcon.astro';
+import { Github, Book, Settings, Cpu, ChevronLeft } from 'lucide-react';
+
+const { frontmatter } = Astro.props;
+---
+
+<Layout title={`${frontmatter.title} | Open Ralph Docs`}>
+  <div class="flex min-h-screen">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-50 border-r border-gray-200 fixed h-full overflow-y-auto hidden md:block">
+      <div class="p-6">
+        <a href="/open-ralph/" class="flex items-center gap-2 mb-8 text-ralph-dark hover:text-ralph-yellow transition-colors">
+          <RobotIcon />
+          <span class="font-bold">Docs</span>
+        </a>
+        <nav class="space-y-1">
+          <a href="/open-ralph/docs/getting-started" class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 text-gray-700">
+            <Book size={16} />
+            Getting Started
+          </a>
+          <a href="https://github.com/boxheed/open-ralph" target="_blank" class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 text-gray-700 mt-6 border-t border-gray-200 pt-6">
+            <Github size={16} />
+            GitHub Repo
+          </a>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="flex-1 md:ml-64 p-8 lg:p-12 max-w-4xl mx-auto">
+        <a href="/open-ralph/" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-ralph-yellow mb-8 md:hidden">
+            <ChevronLeft size={16} /> Back to Home
+        </a>
+        <article class="prose prose-slate prose-lg max-w-none prose-headings:font-bold prose-h1:text-4xl prose-a:text-gemini prose-code:text-pink-600 prose-code:px-1 prose-code:py-0.5 prose-code:rounded-md prose-code:font-normal prose-pre:bg-ralph-dark prose-pre:text-gray-100">
+            <slot />
+        </article>
+    </main>
+  </div>
+</Layout>
+
+<script>
+  // Find all code blocks
+  const blocks = document.querySelectorAll('pre');
+
+  blocks.forEach((block) => {
+    // Create container
+    const container = document.createElement('div');
+    container.className = 'relative group';
+    
+    // Insert container before block and move block into it
+    block.parentNode?.insertBefore(container, block);
+    container.appendChild(block);
+
+    // Create button
+    const button = document.createElement('button');
+    button.className = 'absolute top-2 right-2 p-2 rounded bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100';
+    button.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+      </svg>
+    `;
+    button.title = 'Copy code';
+
+    // Add click event
+    button.addEventListener('click', async () => {
+      const code = block.querySelector('code')?.innerText || '';
+      await navigator.clipboard.writeText(code);
+      
+      // Temporary success state
+      const originalHTML = button.innerHTML;
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-400">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      `;
+      setTimeout(() => {
+        button.innerHTML = originalHTML;
+      }, 2000);
+    });
+
+    container.appendChild(button);
+  });
+</script>
