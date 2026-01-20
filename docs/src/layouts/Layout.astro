@@ -1,0 +1,33 @@
+---
+interface Props {
+	title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="Open Ralph - Autonomous AI Coding Agent" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+	</head>
+	<body class="bg-white text-ralph-dark font-sans selection:bg-ralph-yellow selection:text-ralph-dark">
+		<slot />
+	</body>
+</html>
+<style is:global>
+	:root {
+		--accent: 244, 208, 63;
+	}
+	html {
+		scroll-behavior: smooth;
+	}
+</style>

@@ -1,0 +1,98 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { TerminalSimulator } from '../components/TerminalSimulator';
+import RobotIcon from '../components/RobotIcon.astro';
+import { Shield, Zap, RefreshCcw, Github } from 'lucide-react';
+---
+
+<Layout title="Open Ralph | The Autonomous AI Coding Loop">
+	<main>
+		<!-- Navigation -->
+		<nav class="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
+			<div class="flex items-center gap-3">
+				<RobotIcon />
+				<span class="text-xl font-extrabold tracking-tight">OPEN RALPH</span>
+			</div>
+			<div class="flex items-center gap-8 text-sm font-semibold">
+				<a href="#features" class="hover:text-gemini transition-colors">Features</a>
+				<a href="https://github.com/boxheed/open-ralph" class="flex items-center gap-2 bg-ralph-dark text-white px-4 py-2 rounded-full hover:bg-black transition-all">
+					<Github size={16} />
+					GitHub
+				</a>
+			</div>
+		</nav>
+
+		<!-- Hero Section -->
+		<section class="relative pt-20 pb-32 px-8 overflow-hidden">
+			<div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+				<div>
+					<div class="inline-block px-3 py-1 bg-ralph-yellow/20 text-ralph-dark text-xs font-bold rounded-full mb-6 tracking-widest uppercase">
+						Autonomous Reliability
+					</div>
+					<h1 class="text-6xl lg:text-7xl font-extrabold leading-tight mb-8">
+						"I'm <span class="text-ralph-yellow">helping!</span>"
+					</h1>
+					<p class="text-xl text-gray-600 mb-10 leading-relaxed max-w-lg">
+						The AI coding agent that doesn't just generate code—it <strong>verifies</strong> and <strong>self-corrects</strong> until the tests pass.
+					</p>
+					<div class="flex flex-wrap gap-4">
+						<a href="#get-started" class="bg-ralph-yellow text-ralph-dark px-8 py-4 rounded-xl font-extrabold text-lg shadow-[0_4px_0_0_#D4AC0D] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#D4AC0D] transition-all">
+							Get Started
+						</a>
+						<code class="bg-gray-100 text-gray-800 px-6 py-4 rounded-xl font-mono text-sm flex items-center border border-gray-200">
+							npm install -g https://github.com/boxheed/open-ralph
+						</code>
+					</div>
+				</div>
+				<div class="relative">
+					<div class="absolute -inset-4 bg-ralph-yellow/10 rounded-3xl blur-3xl -z-10"></div>
+					<TerminalSimulator client:load />
+				</div>
+			</div>
+		</section>
+
+		<!-- Features Grid -->
+		<section id="features" class="py-24 bg-gray-50 border-y border-gray-100 px-8">
+			<div class="max-w-7xl mx-auto">
+				<div class="text-center mb-16">
+					<h2 class="text-4xl font-extrabold mb-4">Built for Reliability</h2>
+					<p class="text-gray-500">The Ralph Wiggum Pattern: Propose → Execute → Verify → Fix</p>
+				</div>
+				<div class="grid md:grid-cols-3 gap-8">
+					<div class="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+						<div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-6">
+							<Shield />
+						</div>
+						<h3 class="text-xl font-bold mb-4">Safety First</h3>
+						<p class="text-gray-600 text-sm leading-relaxed">
+							Hard-stop circuit breakers prevent token-burn and infinite hallucination loops.
+						</p>
+					</div>
+					<div class="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+						<div class="w-12 h-12 bg-yellow-50 text-ralph-yellow rounded-lg flex items-center justify-center mb-6">
+							<RefreshCcw />
+						</div>
+						<h3 class="text-xl font-bold mb-4">Self-Correcting</h3>
+						<p class="text-gray-600 text-sm leading-relaxed">
+							Automatically retries and fixes its own mistakes up to 3 times before giving up.
+						</p>
+					</div>
+					<div class="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+						<div class="w-12 h-12 bg-green-50 text-green-600 rounded-lg flex items-center justify-center mb-6">
+							<Zap />
+						</div>
+						<h3 class="text-xl font-bold mb-4">Dynamic Staging</h3>
+						<p class="text-gray-600 text-sm leading-relaxed">
+							Captures new files and modifications automatically via Git-integrated discovery.
+						</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Footer -->
+		<footer class="py-12 px-8 text-center text-gray-400 text-sm font-medium">
+			<p>© 2026 Open Ralph Agent. Apache 2.0 License.</p>
+		</footer>
+	</main>
+</Layout>
